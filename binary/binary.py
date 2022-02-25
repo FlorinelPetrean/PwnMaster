@@ -16,11 +16,11 @@ class Binary:
         self.arch = self.elf.arch
 
     def init_libc(self):
+        libc = None
         try:
             libc = self.elf.libc
         except ValueError:
-            log.error("Cannot find libc for binary")
-            libc = None
+            pass
         return libc
 
     def init_properties(self):
