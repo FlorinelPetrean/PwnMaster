@@ -4,6 +4,8 @@ from binary.binary import *
 import claripy
 import timeout_decorator
 import logging
+from func_model.rand import *
+from func_model.exit import *
 
 log = logging.getLogger(__name__)
 
@@ -11,27 +13,23 @@ log = logging.getLogger(__name__)
 # logging.getLogger("angr").setLevel("CRITICAL")
 
 
-def char(state, c):
+def printable_char(state, c):
     '''returns constraints s.t. c is printable'''
     return state.solver.And(c <= '~', c >= ' ')
 
 
-def overflow_detect_filter(simgr):
+def bof_filter(simgr):
     for state in simgr.unconstrained:
         bits = state.arch.bits
         num_count = bits / 8
-        pc_value = b"C" * int(num_count)
+        pc_value = b"X" * int(num_count)
         # Check satisfiability
         if state.solver.satisfiable(extra_constraints=[state.regs.pc == pc_value]):
-
+            log.info("Found vulnerable state.")
             state.add_constraints(state.regs.pc == pc_value)
-
-            state.add_constraints(b"Go to return!\n" in state.posix.dumps(1))
             user_input = state.globals["user_input"]
             input_bytes = state.solver.eval(user_input, cast_to=bytes)
             offset = input_bytes.index(pc_value)
-
-            log.info("Found vulnerable state.")
 
             log.info("Constraining input to be printable and everything after return address is constrained")
             index = 0
@@ -48,9 +46,8 @@ def overflow_detect_filter(simgr):
             # input_data = state.posix.stdin.load(0, state.posix.stdin.size)
             input_bytes = state.solver.eval(user_input, cast_to=bytes)
             log.info("[+] Vulnerable path found {}".format(input_bytes))
-            if b"CCCC" in input_bytes:
+            if b"XXXX" in input_bytes:
                 log.info("[+] Offset to bytes : {}".format(input_bytes.index(pc_value)))
-            state.globals["offset"] = input_bytes.index(pc_value)
             state.globals["type"] = "Overflow"
             state.globals["input"] = input_bytes
             simgr.stashes["found"].append(state)
@@ -61,24 +58,12 @@ def overflow_detect_filter(simgr):
 
 
 def detect_overflow(binary: Binary):
-    # extras = {
-    #     so.REVERSE_MEMORY_NAME_MAP,
-    #     so.TRACK_ACTION_HISTORY,
-    #     so.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
-    #     so.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
-    # }
-
-    class HookRand(angr.SimProcedure):
-        IS_FUNCTION = True
-
-        def run(self):
-            return 4  # Fair dice roll
-
     p = angr.Project(binary.bin_path, load_options={"auto_load_libs": False})
     # Hook rands
-    p.hook_symbol("rand", HookRand)
-    p.hook_symbol("srand", HookRand)
-    # p.hook_symbol('fgets',angr.SIM_PROCEDURES['libc']['gets']())
+    p.hook_symbol("rand", RandHook())
+    p.hook_symbol("srand", RandHook())
+    # Hook exit
+    p.hook_symbol("exit", ExitHook())
 
     # Setup state based on input type
     argv = [binary.elf.path]
@@ -92,9 +77,9 @@ def detect_overflow(binary: Binary):
         state = p.factory.full_init_state(args=argv, stdin=symbolic_input)
         state.globals["user_input"] = symbolic_input
 
-    # constrain_stdin_printable(state)
     state.libc.buf_symbolic_bytes = 0x100
     state.globals["input_type"] = input_type
+    state.globals["exit"] = False
     simgr = p.factory.simgr(state, save_unconstrained=True)
 
     vuln_details = {"type": None, "input": None, "offset": None}
@@ -104,9 +89,8 @@ def detect_overflow(binary: Binary):
         @timeout_decorator.timeout(120)
         def explore_binary(simgr: angr.sim_manager):
             simgr.explore(
-                find=lambda s: "type" in s.globals, step_func=overflow_detect_filter
-                # find=lambda s: b"Found vuln!\n" in s.posix.dumps(1)
-                # find=lambda s: b"Go to return!" in s.posix.dumps(1)
+                find=lambda s: "type" in s.globals, step_func=bof_filter,
+                avoid=lambda s: s.globals["exit"] is True
             )
 
         explore_binary(simgr)
@@ -117,17 +101,7 @@ def detect_overflow(binary: Binary):
             print("output", end_state.posix.dumps(1))
             vuln_details["type"] = end_state.globals["type"]
             vuln_details["input"] = end_state.globals["input"]
-            vuln_details["offset"] = end_state.globals["offset"]
-
-            # simgr1 = p.factory.simgr(end_state, save_unconstrained=True)
-            #
-            # simgr1.explore(
-            #     # find=lambda s: "type" in s.globals, step_func=overflow_detect_filter
-            #     # find=lambda s: b"Found vuln!\n" in s.posix.dumps(1)
-            #     find=lambda s: b"Go to return!" in s.posix.dumps(1)
-            # )
-            # print(simgr1.found[0])
-
+            vuln_details["output"] = end_state.posix.dumps(1)
 
     except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
         log.info("[~] Keyboard Interrupt")

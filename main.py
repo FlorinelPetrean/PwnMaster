@@ -14,10 +14,10 @@ import sys
 
 
 if __name__ == '__main__':
-    binary_path = sys.argv[1]
+    # binary_path = sys.argv[1]
+    binary_path = "./test/test_check2"
     binary = Binary(binary_path)
     vuln_details = detect_overflow(binary)
-    print(vuln_details)
     exploiter = Exploiter(binary, vuln_details)
     exploiter.exploit()
 

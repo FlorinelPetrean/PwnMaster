@@ -1,7 +1,7 @@
 import angr
 
 
-class HookRandom(angr.SimProcedure):
+class RandHook(angr.SimProcedure):
     IS_FUNCTION = True
 
     def run(self):
