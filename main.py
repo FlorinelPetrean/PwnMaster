@@ -6,7 +6,7 @@ from binary import *
 
 # Press the green button in the gutter to run the script.
 from binary.binary import Binary
-from binary.exploiter import Exploiter
+from binary.rop_exploiter import RopExploiter
 from binary.vuln_detector import *
 from pwn import *
 import argparse
@@ -14,11 +14,11 @@ import sys
 
 
 if __name__ == '__main__':
-    # binary_path = sys.argv[1]
-    binary_path = "./test/test_check2"
+    binary_path = sys.argv[1]
+    # binary_path = "./test/test_check2"
     binary = Binary(binary_path)
     vuln_details = detect_overflow(binary)
-    exploiter = Exploiter(binary, vuln_details)
+    exploiter = RopExploiter(binary, vuln_details)
     exploiter.exploit()
 
 

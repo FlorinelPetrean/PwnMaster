@@ -19,6 +19,9 @@ def get_max_strlen(state, value):
     return i
 
 
+class PrintHook(angr.procedures.libc.printf.printf):
+    pass
+
 """
 Model either printf("User input") or printf("%s","Userinput")
 """

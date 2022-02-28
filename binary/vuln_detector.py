@@ -32,22 +32,18 @@ def bof_filter(simgr):
             offset = input_bytes.index(pc_value)
 
             log.info("Constraining input to be printable and everything after return address is constrained")
-            index = 0
-            for c in user_input.chop(8):
+            for index, c in enumerate(user_input.chop(8)):
                 if index > offset:
                     constraint = claripy.And(c == 0x41, c == 0x41)
                 else:
                     constraint = claripy.And(c > 0x2F, c < 0x7F)
                 if state.solver.satisfiable([constraint]):
                     state.add_constraints(constraint)
-                index = index + 1
 
             # Get input values
             # input_data = state.posix.stdin.load(0, state.posix.stdin.size)
             input_bytes = state.solver.eval(user_input, cast_to=bytes)
             log.info("[+] Vulnerable path found {}".format(input_bytes))
-            if b"XXXX" in input_bytes:
-                log.info("[+] Offset to bytes : {}".format(input_bytes.index(pc_value)))
             state.globals["type"] = "Overflow"
             state.globals["input"] = input_bytes
             simgr.stashes["found"].append(state)
@@ -82,7 +78,7 @@ def detect_overflow(binary: Binary):
     state.globals["exit"] = False
     simgr = p.factory.simgr(state, save_unconstrained=True)
 
-    vuln_details = {"type": None, "input": None, "offset": None}
+    vuln_details = {}
     # Lame way to do a timeout
     try:
 
