@@ -16,9 +16,13 @@ int main() {
 
     printf("Main Function is at: %lx\n", main);
 
+    read(0, magic3, 10);
+
+    printf(magic3);
+
 //    if(magic3 == 69) {
-        if(strcmp(magic, "012345678") == 0) {
-            if(strcmp(magic2, "012345678") == 0){
+        if(strcmp(magic, "magic1") == 0) {
+            if(strcmp(magic2, "magic2") == 0){
                 printf("Found vuln!\n");
                 read(0, buf, 100);
 //                gets(buf);
@@ -30,12 +34,7 @@ int main() {
         exit(1);
     }
 
-//    scanf("%s", magic3);
-    read(0, magic3, 10);
 
-    if(strcmp(magic3, "wtfwtf") != 0) {
-        exit(1);
-    }
 
     printf("Go to return!\n");
 

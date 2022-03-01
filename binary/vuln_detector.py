@@ -6,6 +6,9 @@ import timeout_decorator
 import logging
 from func_model.rand import *
 from func_model.exit import *
+from func_model.scanf import *
+
+# from func_model.print_format import *
 
 log = logging.getLogger(__name__)
 
@@ -31,12 +34,15 @@ def bof_filter(simgr):
             input_bytes = state.solver.eval(user_input, cast_to=bytes)
             offset = input_bytes.index(pc_value)
 
+
             log.info("Constraining input to be printable and everything after return address is constrained")
             for index, c in enumerate(user_input.chop(8)):
                 if index > offset:
                     constraint = claripy.And(c == 0x41, c == 0x41)
+                    # pass
                 else:
-                    constraint = claripy.And(c > 0x2F, c < 0x7F)
+                    # constraint = claripy.And(c > 0x2F, c < 0x7F)
+                    constraint = claripy.And(c == 0x42, c == 0x42)
                 if state.solver.satisfiable([constraint]):
                     state.add_constraints(constraint)
 
@@ -48,7 +54,7 @@ def bof_filter(simgr):
             state.globals["input"] = input_bytes
             simgr.stashes["found"].append(state)
             simgr.stashes["unconstrained"].remove(state)
-            break
+            return simgr
 
     return simgr
 
@@ -60,6 +66,10 @@ def detect_overflow(binary: Binary):
     p.hook_symbol("srand", RandHook())
     # Hook exit
     p.hook_symbol("exit", ExitHook())
+
+    p.hook_symbol("scanf", ScanfHook())
+
+    # p.hook_symbol("printf", PrintFormat(0))
 
     # Setup state based on input type
     argv = [binary.elf.path]

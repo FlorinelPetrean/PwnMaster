@@ -8,17 +8,19 @@ int main() {
     char magic[10];
     char magic2[10];
     char magic3[10];
+    int magic4;
     printf("Test binary\n");
     read(0, magic, 10);
     read(0, magic2, 10);
-//    scanf("%d", &magic3);
 
-//    if(magic3 == 69) {
+//    scanf("%d", &magic4);
+//    fscanf(0, "%d", &magic4);
+//    if(magic4 == 1) {
         if(strcmp(magic, "012345678") == 0) {
             if(strcmp(magic2, "012345678") == 0){
                 printf("Found vuln!\n");
-//                read(0, buf, 100);
-                gets(buf);
+                read(0, buf, 100);
+//                gets(buf);
             }
         }
 //    }
