@@ -27,18 +27,18 @@ Model either printf("User input") or printf("%s","Userinput")
 
 class PrintFormat(angr.procedures.libc.printf.printf):
     IS_FUNCTION = True
-    input_index = 0
+    format_index = 0
     """
     Checks userinput arg
     """
 
-    def __init__(self, input_index):
+    def __init__(self, format_index):
         # Set user input index for different
         # printf types
-        self.input_index = input_index
+        self.format_index = format_index
         angr.procedures.libc.printf.printf.__init__(self)
 
-    def checkExploitable(self, fmt):
+    def detect_vuln(self, fmt):
 
         bits = self.state.arch.bits
         load_len = int(bits / 8)
@@ -48,27 +48,27 @@ class PrintFormat(angr.procedures.libc.printf.printf):
         Check to see if there are any symbolic bytes
         Passed in that we control
         """
-        i = self.input_index
+        i = self.format_index
         state = self.state
         solv = state.solver.eval
 
-        printf_arg = self.arguments[i]
+        format_arg = self.arguments[i]
 
-        var_loc = solv(printf_arg)
+        format_addr = solv(format_arg)
 
         # Parts of this argument could be symbolic, so we need
         # to check every byte
-        var_data = state.memory.load(var_loc, max_read_len)
+        var_data = state.memory.load(format_addr, max_read_len)
         var_len = get_max_strlen(state, var_data)
 
-        fmt_len = self._sim_strlen(fmt)
+        self._sim_strlen(fmt)
 
         # Reload with just our max len
-        var_data = state.memory.load(var_loc, var_len)
+        var_data = state.memory.load(format_addr, var_len)
 
         log.info("Building list of symbolic bytes")
         symbolic_list = [
-            state.memory.load(var_loc + x, 1).symbolic for x in range(var_len)
+            state.memory.load(format_addr + x, 1).symbolic for x in range(var_len)
         ]
         log.info("Done Building list of symbolic bytes")
 
@@ -84,7 +84,6 @@ class PrintFormat(angr.procedures.libc.printf.printf):
         position = 0
         count = 0
         greatest_count = 0
-        prev_item = symbolic_list[0]
         for i in range(1, len(symbolic_list)):
             if symbolic_list[i] and symbolic_list[i] == symbolic_list[i - 1]:
                 count = count + 1
@@ -97,6 +96,7 @@ class PrintFormat(angr.procedures.libc.printf.printf):
                     position = i - 1 - count
                     # previous position minus greatest count
                 count = 0
+
         log.info(
             "[+] Found symbolic buffer at position {} of length {}".format(
                 position, greatest_count
@@ -108,28 +108,19 @@ class PrintFormat(angr.procedures.libc.printf.printf):
             if bits == 64:
                 str_val = b"%llx_"
             if self.can_constrain_bytes(
-                    state, var_data, var_loc, position, var_len, strVal=str_val
+                    state, format_addr, position, var_len, strVal=str_val
             ):
                 log.info("[+] Can constrain bytes")
                 log.info("[+] Constraining input to leak")
 
                 self.constrainBytes(
                     state,
-                    var_data,
-                    var_loc,
+                    format_addr,
                     position,
                     var_len,
                     strVal=str_val,
                 )
                 # Verify solution
-                # stdin_str = str(state_copy.posix.dumps(0))
-                # user_input = self.state.globals["inputType"]
-                # if str_val in solv(user_input):
-                #     var_value = self.state.memory.load(var_loc)
-                #     self.constrainBytes(
-                #         self.state, var_value, var_loc, position, var_value_length
-                #     )
-                # print("[+] Vulnerable path found {}".format(vuln_string))
                 user_input = state.globals["user_input"]
 
                 self.state.globals["input"] = solv(user_input, cast_to=bytes)
@@ -141,7 +132,7 @@ class PrintFormat(angr.procedures.libc.printf.printf):
 
         return False
 
-    def can_constrain_bytes(self, state, symVar, loc, position, length, strVal=b"%x_"):
+    def can_constrain_bytes(self, state, loc, position, length, strVal=b"%x_"):
         total_region = self.state.memory.load(loc, length)
         total_format = strVal * length
         # If we can constrain it all in one go, then let's do it!
@@ -161,7 +152,7 @@ class PrintFormat(angr.procedures.libc.printf.printf):
                 return False
         return True
 
-    def constrainBytes(self, state, symVar, loc, position, length, strVal=b"%x_"):
+    def constrainBytes(self, state, loc, position, length, strVal=b"%x_"):
 
         total_region = self.state.memory.load(loc, length)
         total_format = strVal * length
@@ -186,7 +177,7 @@ class PrintFormat(angr.procedures.libc.printf.printf):
                 )
 
     def run(self, _, fmt):
-        if not self.checkExploitable(fmt):
+        if not self.detect_vuln(fmt):
             return super(type(self), self).run(fmt)
 
 
