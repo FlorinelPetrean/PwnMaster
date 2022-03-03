@@ -19,8 +19,8 @@ int main() {
         if(strcmp(magic, "012345678") == 0) {
             if(strcmp(magic2, "012345678") == 0){
                 printf("Found vuln!\n");
-                read(0, buf, 100);
-//                gets(buf);
+//                read(0, buf, 100);
+                gets(buf);
             }
         }
 //    }

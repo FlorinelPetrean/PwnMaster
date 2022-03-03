@@ -7,7 +7,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class putsFormat(angr.procedures.libc.puts.puts):
+class PutsHook(angr.procedures.libc.puts.puts):
     IS_FUNCTION = True
 
     def check_for_leak(self, string):

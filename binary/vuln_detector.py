@@ -7,6 +7,7 @@ import logging
 from func_model.rand import *
 from func_model.exit import *
 from func_model.scanf import *
+from func_model.gets import *
 
 # from func_model.print_format import *
 
@@ -14,6 +15,48 @@ log = logging.getLogger(__name__)
 
 
 # logging.getLogger("angr").setLevel("CRITICAL")
+
+def fully_symbolic(state, variable):
+    '''
+    check if a symbolic variable is completely symbolic
+    '''
+
+    for i in range(state.arch.bits):
+        if not state.solver.symbolic(variable[i]):
+            return False
+
+    return True
+
+
+def check_continuity(address, addresses, length):
+    '''
+    dumb way of checking if the region at 'address' contains 'length' amount of controlled
+    memory.
+    '''
+
+    for i in range(length):
+        if not address + i in addresses:
+            return False
+
+    return True
+
+
+def find_symbolic_buffer(state, length):
+    '''
+    dumb implementation of find_symbolic_buffer, looks for a buffer in memory under the user's
+    control
+    '''
+
+    # get all the symbolic bytes from stdin
+    stdin = state.posix.stdin
+
+    sym_addrs = []
+    for _, symbol in state.solver.get_variables('file', stdin.ident):
+        sym_addrs.extend(state.memory.addrs_for_name(next(iter(symbol.variables))))
+
+    for addr in sym_addrs:
+        if check_continuity(addr, sym_addrs, length):
+            yield addr
 
 
 def printable_char(state, c):
@@ -24,33 +67,47 @@ def printable_char(state, c):
 def bof_filter(simgr):
     for state in simgr.unconstrained:
         bits = state.arch.bits
-        num_count = bits / 8
-        pc_value = b"X" * int(num_count)
+        addr_size = bits // 8
+        pc_value = b"X" * addr_size
         # Check satisfiability
         if state.solver.satisfiable(extra_constraints=[state.regs.pc == pc_value]):
             log.info("Found vulnerable state.")
             state.add_constraints(state.regs.pc == pc_value)
+
+            sp = state.callstack.current_stack_pointer - addr_size
+            buf_mem = state.memory.load(sp, 300 * 8)
+            controlled_stack_space = 0
+
+            for index, c in enumerate(buf_mem.chop(8)):
+                constraint = claripy.And(c == b"P", c == b"P")
+                if state.solver.satisfiable([constraint]):
+                    state.add_constraints(constraint)
+                    controlled_stack_space += 1
+                else:
+                    break
+
+            # for buf_addr in find_symbolic_buffer(state, 100):
+            #     log.info("found symbolic buffer at %#x", buf_addr)
+
             user_input = state.globals["user_input"]
             input_bytes = state.solver.eval(user_input, cast_to=bytes)
             offset = input_bytes.index(pc_value)
 
-
             log.info("Constraining input to be printable and everything after return address is constrained")
             for index, c in enumerate(user_input.chop(8)):
-                if index > offset:
+                if index > offset + 1:
                     constraint = claripy.And(c == 0x41, c == 0x41)
-                    # pass
                 else:
-                    # constraint = claripy.And(c > 0x2F, c < 0x7F)
                     constraint = claripy.And(c == 0x42, c == 0x42)
                 if state.solver.satisfiable([constraint]):
                     state.add_constraints(constraint)
 
             # Get input values
-            # input_data = state.posix.stdin.load(0, state.posix.stdin.size)
             input_bytes = state.solver.eval(user_input, cast_to=bytes)
             log.info("[+] Vulnerable path found {}".format(input_bytes))
-            state.globals["type"] = "Overflow"
+            state.globals["type"] = "bof"
+            if "ctrl_stack_space" not in state.globals:
+                state.globals["ctrl_stack_space"] = controlled_stack_space
             state.globals["input"] = input_bytes
             simgr.stashes["found"].append(state)
             simgr.stashes["unconstrained"].remove(state)
@@ -65,9 +122,10 @@ def detect_overflow(binary: Binary):
     p.hook_symbol("rand", RandHook())
     p.hook_symbol("srand", RandHook())
     # Hook exit
-    p.hook_symbol("exit", ExitHook())
+    p.hook_symbol("exit", ExitHook(), replace=True)
 
     p.hook_symbol("scanf", ScanfHook())
+    p.hook_symbol("gets", GetsHook(), replace=True)
 
     # p.hook_symbol("printf", PrintFormat(0))
 
@@ -84,10 +142,10 @@ def detect_overflow(binary: Binary):
         state.globals["user_input"] = symbolic_input
 
     state.libc.buf_symbolic_bytes = 0x100
+    state.libc.max_gets_size = 128
     state.globals["input_type"] = input_type
     state.globals["exit"] = False
     simgr = p.factory.simgr(state, save_unconstrained=True)
-
     vuln_details = {}
     # Lame way to do a timeout
     try:
@@ -107,6 +165,7 @@ def detect_overflow(binary: Binary):
             print("output", end_state.posix.dumps(1))
             vuln_details["type"] = end_state.globals["type"]
             vuln_details["input"] = end_state.globals["input"]
+            vuln_details["ctrl_stack_space"] = end_state.globals["ctrl_stack_space"]
             vuln_details["output"] = end_state.posix.dumps(1)
 
     except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
