@@ -48,10 +48,9 @@ def find_symbolic_buffer(state, length):
     '''
 
     # get all the symbolic bytes from stdin
-    stdin = state.posix.stdin
 
     sym_addrs = []
-    for _, symbol in state.solver.get_variables('file', stdin.ident):
+    for _, symbol in state.solver.get_variables('file', 'stdin'):
         sym_addrs.extend(state.memory.addrs_for_name(next(iter(symbol.variables))))
 
     for addr in sym_addrs:
@@ -86,29 +85,27 @@ def bof_filter(simgr):
                 else:
                     break
 
-            # for buf_addr in find_symbolic_buffer(state, 100):
-            #     log.info("found symbolic buffer at %#x", buf_addr)
-
-            user_input = state.globals["user_input"]
-            input_bytes = state.solver.eval(user_input, cast_to=bytes)
-            offset = input_bytes.index(pc_value)
-
-            log.info("Constraining input to be printable and everything after return address is constrained")
-            for index, c in enumerate(user_input.chop(8)):
-                if index > offset + 1:
-                    constraint = claripy.And(c == 0x41, c == 0x41)
-                else:
+            print(list(state.solver.get_variables('mem')))
+            vars = list(state.solver.get_variables('file', 'stdin'))
+            crash_input = []
+            for _, var in vars:
+                var_val = b""
+                for i, c in enumerate(var.chop(8)):
                     constraint = claripy.And(c == 0x42, c == 0x42)
-                if state.solver.satisfiable([constraint]):
-                    state.add_constraints(constraint)
+                    if state.solver.satisfiable([constraint]):
+                        state.add_constraints(constraint)
+                    var_val += state.solver.eval(c).to_bytes(1, 'little')
+                print(var_val)
+                crash_input.append(var_val)
 
-            # Get input values
-            input_bytes = state.solver.eval(user_input, cast_to=bytes)
-            log.info("[+] Vulnerable path found {}".format(input_bytes))
+            for buf_addr in find_symbolic_buffer(state, 10):
+                log.info("found symbolic buffer at %#x", buf_addr)
+
+
             state.globals["type"] = "bof"
             if "ctrl_stack_space" not in state.globals:
                 state.globals["ctrl_stack_space"] = controlled_stack_space
-            state.globals["input"] = input_bytes
+            state.globals["input"] = crash_input
             simgr.stashes["found"].append(state)
             simgr.stashes["unconstrained"].remove(state)
             return simgr
@@ -140,6 +137,8 @@ def detect_overflow(binary: Binary):
         argv.append(symbolic_input)
         state = p.factory.full_init_state(args=argv, stdin=symbolic_input)
         state.globals["user_input"] = symbolic_input
+
+    state = p.factory.entry_state()
 
     state.libc.buf_symbolic_bytes = 0x100
     state.libc.max_gets_size = 128
