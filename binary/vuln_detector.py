@@ -128,15 +128,15 @@ def detect_overflow(binary: Binary):
 
     # Setup state based on input type
     argv = [binary.elf.path]
-    symbolic_input = claripy.BVS("input", 300 * 8)
+    # symbolic_input = claripy.BVS("input", 300 * 8)
     input_type = binary.detect_input_type()
-    if input_type == "STDIN":
-        state = p.factory.full_init_state(args=argv, stdin=symbolic_input)
-        state.globals["user_input"] = symbolic_input
-    else:
-        argv.append(symbolic_input)
-        state = p.factory.full_init_state(args=argv, stdin=symbolic_input)
-        state.globals["user_input"] = symbolic_input
+    # if input_type == "STDIN":
+    #     state = p.factory.full_init_state(args=argv, stdin=symbolic_input)
+    #     state.globals["user_input"] = symbolic_input
+    # else:
+    #     argv.append(symbolic_input)
+    #     state = p.factory.full_init_state(args=argv, stdin=symbolic_input)
+    #     state.globals["user_input"] = symbolic_input
 
     state = p.factory.entry_state()
 

@@ -1,3 +1,0 @@
-# environment variables:
-# command line:
-'afl-fuzz' '-i' 'in' '-o' 'out' './test_afl' '-C'
