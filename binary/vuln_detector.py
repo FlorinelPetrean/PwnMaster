@@ -16,46 +16,6 @@ log = logging.getLogger(__name__)
 
 # logging.getLogger("angr").setLevel("CRITICAL")
 
-def fully_symbolic(state, variable):
-    '''
-    check if a symbolic variable is completely symbolic
-    '''
-
-    for i in range(state.arch.bits):
-        if not state.solver.symbolic(variable[i]):
-            return False
-
-    return True
-
-
-def check_continuity(address, addresses, length):
-    '''
-    dumb way of checking if the region at 'address' contains 'length' amount of controlled
-    memory.
-    '''
-
-    for i in range(length):
-        if not address + i in addresses:
-            return False
-
-    return True
-
-
-def find_symbolic_buffer(state, length):
-    '''
-    dumb implementation of find_symbolic_buffer, looks for a buffer in memory under the user's
-    control
-    '''
-
-    # get all the symbolic bytes from stdin
-
-    sym_addrs = []
-    for _, symbol in state.solver.get_variables('file', 'stdin'):
-        sym_addrs.extend(state.memory.addrs_for_name(next(iter(symbol.variables))))
-
-    for addr in sym_addrs:
-        if check_continuity(addr, sym_addrs, length):
-            yield addr
 
 
 def printable_char(state, c):
@@ -94,13 +54,12 @@ def bof_filter(simgr):
                     constraint = claripy.And(c == 0x42, c == 0x42)
                     if state.solver.satisfiable([constraint]):
                         state.add_constraints(constraint)
-                    var_val += state.solver.eval(c).to_bytes(1, 'little')
+                    var_val += state.solver.eval(c).to_bytes(1, context.endian)
                 print(var_val)
                 crash_input.append(var_val)
 
-            for buf_addr in find_symbolic_buffer(state, 10):
-                log.info("found symbolic buffer at %#x", buf_addr)
-
+            # for buf_addr in find_symbolic_buffer(state, 10):
+            #     log.info("found symbolic buffer at %#x", buf_addr)
 
             state.globals["type"] = "bof"
             if "ctrl_stack_space" not in state.globals:
@@ -114,6 +73,7 @@ def bof_filter(simgr):
 
 
 def detect_overflow(binary: Binary):
+    context.binary = binary.elf
     p = angr.Project(binary.bin_path, load_options={"auto_load_libs": False})
     # Hook rands
     p.hook_symbol("rand", RandHook())
@@ -121,7 +81,7 @@ def detect_overflow(binary: Binary):
     # Hook exit
     p.hook_symbol("exit", ExitHook(), replace=True)
 
-    p.hook_symbol("scanf", ScanfHook())
+    # p.hook_symbol("scanf", ScanfHook())
     p.hook_symbol("gets", GetsHook(), replace=True)
 
     # p.hook_symbol("printf", PrintFormat(0))

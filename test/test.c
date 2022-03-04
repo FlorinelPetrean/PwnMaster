@@ -15,10 +15,11 @@ int main() {
     scanf("%d", &magic4);
 
     if(magic4 == 69) {
-        if(strcmp(magic, "012345678") == 0) {
-            if(strcmp(magic2, "012345678") == 0){
+        if(strncmp(magic, "012345678", 6) == 0) {
+            if(strncmp(magic2, "012345678", 6) == 0){
                 printf("Found vuln!\n");
-                read(0, buf, 100);
+//                read(0, buf, 80);
+                  fgets(buf, 120, stdin);
 //                gets(buf);
             }
         }
@@ -28,10 +29,9 @@ int main() {
         exit(1);
     }
 
-//    scanf("%s", magic3);
     read(0, magic3, 10);
 
-    if(strcmp(magic3, "wtfwtf") != 0) {
+    if(strncmp(magic3, "wtfwtf", 5) != 0) {
         exit(1);
     }
 
