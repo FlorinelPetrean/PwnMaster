@@ -17,13 +17,12 @@ log = logging.getLogger(__name__)
 # logging.getLogger("angr").setLevel("CRITICAL")
 
 
-
 def printable_char(state, c):
     '''returns constraints s.t. c is printable'''
     return state.solver.And(c <= '~', c >= ' ')
 
 
-def bof_filter(simgr):
+def bof_filter(simgr: angr.sim_manager):
     for state in simgr.unconstrained:
         bits = state.arch.bits
         addr_size = bits // 8
@@ -33,8 +32,8 @@ def bof_filter(simgr):
             log.info("Found vulnerable state.")
             state.add_constraints(state.regs.pc == pc_value)
 
-            sp = state.callstack.current_stack_pointer - addr_size
-            buf_mem = state.memory.load(sp, 300 * 8)
+            sp = state.callstack.current_stack_pointer
+            buf_mem = state.memory.load(sp - addr_size, 300 * 8)
             controlled_stack_space = 0
 
             for index, c in enumerate(buf_mem.chop(8)):
@@ -56,6 +55,9 @@ def bof_filter(simgr):
                         state.add_constraints(constraint)
                     var_val += state.solver.eval(c).to_bytes(1, context.endian)
                 print(var_val)
+                if pc_value in var_val:
+                    offset = var_val.index(pc_value)
+                    state.globals["vuln_buf_addr"] = sp - addr_size
                 crash_input.append(var_val)
 
             # for buf_addr in find_symbolic_buffer(state, 10):
@@ -101,7 +103,7 @@ def detect_overflow(binary: Binary):
     state = p.factory.entry_state()
 
     state.libc.buf_symbolic_bytes = 0x100
-    state.libc.max_gets_size = 128
+    state.libc.max_gets_size = 0x100
     state.globals["input_type"] = input_type
     state.globals["exit"] = False
     simgr = p.factory.simgr(state, save_unconstrained=True)
@@ -120,11 +122,13 @@ def detect_overflow(binary: Binary):
 
         if "found" in simgr.stashes and len(simgr.found):
             end_state = simgr.found[0]
-            print("input", end_state.posix.dumps(0))
-            print("output", end_state.posix.dumps(1))
+            # print("input", end_state.posix.dumps(0))
+            # print("output", end_state.posix.dumps(1))
+
             vuln_details["type"] = end_state.globals["type"]
             vuln_details["input"] = end_state.globals["input"]
             vuln_details["ctrl_stack_space"] = end_state.globals["ctrl_stack_space"]
+            vuln_details["vuln_buf_addr"] = end_state.globals["vuln_buf_addr"]
             vuln_details["output"] = end_state.posix.dumps(1)
 
     except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:

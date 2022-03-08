@@ -6,5 +6,6 @@ class GetsHook(angr.SimProcedure):
 
     def run(self, dst):
         self.state.globals["ctrl_stack_space"] = 1024
+        self.state.globals["vuln_buf_addr"] = self.state.solver.eval(dst)
         gets_func = angr.SIM_PROCEDURES["libc"]["gets"]
         return self.inline_call(gets_func, dst).ret_expr
