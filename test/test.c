@@ -26,15 +26,15 @@ void vuln() {
         }
     }
 
-//    if (strncmp(buf, "UTCN", 4) != 0) {
-//        exit(1);
-//    }
+    if (strncmp(buf, "UTCN", 4) != 0) {
+        exit(1);
+    }
 
-//    read(0, magic3, 10);
-//
-//    if(strncmp(magic3, "wtfwtf", 5) != 0) {
-//        exit(1);
-//    }
+    read(0, magic3, 10);
+
+    if(strncmp(magic3, "wtfwtf", 5) != 0) {
+        exit(1);
+    }
 
 }
 

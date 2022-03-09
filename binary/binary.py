@@ -67,15 +67,17 @@ class Binary:
                 return find_func
         return None
 
-    def find_string(self, string, search_libc=False):
+    def find_bytes(self, string, search_libc=False):
         elf = self.elf if search_libc is False else self.libc
-        occurrences = elf.search(string)
-        return next(occurrences)
+        occurrences = list(elf.search(string))
+        if len(occurrences) > 0:
+            return occurrences[0]
+        return None
 
     def find_binsh(self, search_libc=False):
         binsh = [b"/bin/sh\x00", b"/bin/bash\x00"]
         for s in binsh:
-            find_s = self.find_string(s, search_libc)
+            find_s = self.find_bytes(s, search_libc)
             if find_s is not None:
                 return find_s
         return None

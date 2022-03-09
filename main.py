@@ -21,4 +21,5 @@ if __name__ == '__main__':
         exploiter.exploit()
     else:
         exploiter = RopExploiter(binary, vuln_details)
-        exploiter.exploit()
+        # exploiter.exploit()
+        exploiter.ret2dlresolve()

@@ -34,13 +34,13 @@ def bof_filter(simgr: angr.sim_manager):
 
             sp = state.callstack.current_stack_pointer
             buf_mem = state.memory.load(sp - addr_size, 300 * 8)
-            controlled_stack_space = 0
+            control_after_ret = 0
 
             for index, c in enumerate(buf_mem.chop(8)):
                 constraint = claripy.And(c == b"P", c == b"P")
                 if state.solver.satisfiable([constraint]):
                     state.add_constraints(constraint)
-                    controlled_stack_space += 1
+                    control_after_ret += 1
                 else:
                     break
 
@@ -57,15 +57,16 @@ def bof_filter(simgr: angr.sim_manager):
                 print(var_val)
                 if pc_value in var_val:
                     offset = var_val.index(pc_value)
-                    state.globals["vuln_buf_addr"] = sp - addr_size
+                    controlled_bytes = var_val[0:offset].count(b"B")
+                    state.globals["control_before_ret"] = controlled_bytes
                 crash_input.append(var_val)
 
             # for buf_addr in find_symbolic_buffer(state, 10):
             #     log.info("found symbolic buffer at %#x", buf_addr)
 
             state.globals["type"] = "bof"
-            if "ctrl_stack_space" not in state.globals:
-                state.globals["ctrl_stack_space"] = controlled_stack_space
+            if "control_after_ret" not in state.globals:
+                state.globals["control_after_ret"] = control_after_ret
             state.globals["input"] = crash_input
             simgr.stashes["found"].append(state)
             simgr.stashes["unconstrained"].remove(state)
@@ -127,8 +128,8 @@ def detect_overflow(binary: Binary):
 
             vuln_details["type"] = end_state.globals["type"]
             vuln_details["input"] = end_state.globals["input"]
-            vuln_details["ctrl_stack_space"] = end_state.globals["ctrl_stack_space"]
-            vuln_details["vuln_buf_addr"] = end_state.globals["vuln_buf_addr"]
+            vuln_details["control_before_ret"] = end_state.globals["control_before_ret"]
+            vuln_details["control_after_ret"] = end_state.globals["control_after_ret"]
             vuln_details["output"] = end_state.posix.dumps(1)
 
     except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
