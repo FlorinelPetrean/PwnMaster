@@ -7,7 +7,8 @@
 from binary.binary import Binary
 from binary.rop_exploiter import RopExploiter
 from binary.sc_exploiter import ShellcodeExploiter
-from binary.vuln_detector import *
+from binary.bof_detector import *
+from binary.fmt_detector import *
 from pwn import *
 import argparse
 import sys
@@ -15,11 +16,13 @@ import sys
 if __name__ == '__main__':
     binary_path = sys.argv[1]
     binary = Binary(binary_path)
-    vuln_details = detect_overflow(binary)
-    if not binary.protection['nx']:
-        exploiter = ShellcodeExploiter(binary, vuln_details)
-        exploiter.exploit()
-    else:
-        exploiter = RopExploiter(binary, vuln_details)
-        # exploiter.exploit()
-        exploiter.ret2dlresolve()
+    # vuln_details = detect_overflow(binary)
+    # if not binary.protection['nx']:
+    #     exploiter = ShellcodeExploiter(binary, vuln_details)
+    #     exploiter.exploit()
+    # else:
+    #     exploiter = RopExploiter(binary, vuln_details)
+    #     # exploiter.exploit()
+    #     exploiter.ret2dlresolve()
+    vuln_details = detect_format_string(binary)
+    print(vuln_details)

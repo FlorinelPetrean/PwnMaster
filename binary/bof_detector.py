@@ -17,11 +17,6 @@ log = logging.getLogger(__name__)
 # logging.getLogger("angr").setLevel("CRITICAL")
 
 
-def printable_char(state, c):
-    '''returns constraints s.t. c is printable'''
-    return state.solver.And(c <= '~', c >= ' ')
-
-
 def bof_filter(simgr: angr.sim_manager):
     for state in simgr.unconstrained:
         bits = state.arch.bits
