@@ -28,7 +28,7 @@ def detect_format_string(binary: Binary):
     p.hook_symbol("exit", ExitHook(), replace=True)
 
     # Stdio based ones
-    p.hook_symbol("printf", PrintFormat(0))
+    p.hook_symbol("printf", PrintFormat(0), replace=True)
     p.hook_symbol("fprintf", PrintFormat(1))
     p.hook_symbol("dprintf", PrintFormat(1))
     p.hook_symbol("sprintf", PrintFormat(1))
@@ -44,6 +44,18 @@ def detect_format_string(binary: Binary):
     # symbolic_input = claripy.BVS("input", 300 * 8)
     input_type = binary.detect_input_type()
 
+    # Setup state based on input type
+    # argv = [binary.elf.path]
+    # symbolic_input = claripy.BVS("input", 300 * 8)
+    # input_type = binary.detect_input_type()
+    # if input_type == "STDIN":
+    #     state = p.factory.full_init_state(args=argv, stdin=symbolic_input)
+    #     state.globals["user_input"] = symbolic_input
+    # else:
+    #     argv.append(symbolic_input)
+    #     state = p.factory.full_init_state(args=argv, stdin=symbolic_input)
+    #     state.globals["user_input"] = symbolic_input
+
     state = p.factory.entry_state()
 
     state.libc.buf_symbolic_bytes = 0x100
@@ -55,7 +67,7 @@ def detect_format_string(binary: Binary):
     # Lame way to do a timeout
     try:
 
-        @timeout_decorator.timeout(1200)
+        @timeout_decorator.timeout(120)
         def explore_binary(simgr: angr.sim_manager):
             simgr.explore(
                 find=lambda s: "type" in s.globals,

@@ -39,44 +39,43 @@ class PrintFormat(angr.procedures.libc.printf.printf):
     Checks userinput arg
     """
 
-    def __init__(self, format_index):
+    def __init__(self, format_index, **kwargs):
         # Set user input index for different
         # printf types
+        super().__init__(**kwargs)
         self.format_index = format_index
         angr.procedures.libc.printf.printf.__init__(self)
 
-    def detect_vuln(self, fmt):
+    def vulnerable(self, fmt):
 
         bits = self.state.arch.bits
-        max_read_len = 300 * 8
+        max_read_len = 100 * 8
         """
         For each value passed to printf
         Check to see if there are any symbolic bytes
         Passed in that we control
         """
         i = self.format_index
-        state = self.state
-        eval = state.solver.eval
 
         format_arg = self.arguments[i]
 
-        format_addr = eval(format_arg)
+        format_addr = self.state.solver.eval(format_arg)
 
         # Parts of this argument could be symbolic, so we need
         # to check every byte
-        var_data = state.memory.load(format_addr, max_read_len)
-        var_len = get_max_strlen(state, var_data)
+        var_data = self.state.memory.load(format_addr, max_read_len)
+        var_len = get_max_strlen(self.state, var_data)
 
-        self._sim_strlen(fmt)
+        # self._sim_strlen(fmt)
 
         # Reload with just our max len
-        var_data = state.memory.load(format_addr, var_len * 8)
+        var_data = self.state.memory.load(format_addr, var_len * 8)
 
         buffer_length = 0
         largest_buffer_position = 0
         largest_buffer_length = buffer_length
         for index, c in enumerate(var_data.chop(8)):
-            if not is_char_symbolic(c) or eval(c) == b"\x00":
+            if not is_char_symbolic(c) or self.state.solver.eval(c) == b'\x00':
                 if largest_buffer_length < buffer_length:
                     largest_buffer_length = buffer_length
                     largest_buffer_position = index - buffer_length
@@ -92,33 +91,108 @@ class PrintFormat(angr.procedures.libc.printf.printf):
                 buffer_position, buffer_length
             )
         )
-        buffer = state.memory.load(format_addr + buffer_position, buffer_length * 8)
+        buffer = self.state.memory.load(format_addr + buffer_position, buffer_length * 8)
 
         if buffer_length > 0:
             constrained = True
             # str_val = b"%lx|" if bits == 32 else b"%llx|"
             str_val = b"F"
             concrete_buffer_val = str_val * (buffer_length // len(str_val))
-            if state.solver.satisfiable(extra_constraints=[buffer == concrete_buffer_val]):
-                state.add_constraints(buffer == concrete_buffer_val)
-                constrained = True
-            else:
-                for index, c in enumerate(buffer.chop(8)):
-                    if state.solver.satisfiable(extra_constraints=[c == concrete_buffer_val[index]]):
-                        state.add_constraints(c == concrete_buffer_val[index])
-                    else:
-                        constrained = False
+            # if self.state.solver.satisfiable(extra_constraints=[buffer == concrete_buffer_val]):
+            #     self.state.add_constraints(buffer == concrete_buffer_val)
+            #     constrained = True
+            # else:
+            # for index, c in enumerate(buffer.chop(8)):
+            #     if self.state.solver.satisfiable(extra_constraints=[c == b"F"]):
+            #         self.state.add_constraints(c == b"F")
+            #     else:
+            #         constrained = False
 
-            if constrained is True:
-                self.state.globals["input"] = eval(buffer, cast_to=bytes)
+            if self.can_constrain_bytes(
+                self.state, format_addr, buffer_position, buffer_length, strVal=str_val
+            ):
+                log.info("[+] Can constrain bytes")
+                log.info("[+] Constraining input to leak")
+
+                self.constrainBytes(
+                    self.state,
+                    format_addr,
+                    buffer_position,
+                    buffer_length,
+                    strVal=str_val,
+                )
+
+                # print(self.state.globals["user_input"].variables)
+                # if constrained is True:
+                # self.state.globals["input"] = self.state.solver.eval(self.state.globals["user_input"], cast_to=bytes)
+
+                vars = list(self.state.solver.get_variables('file', 'stdin'))
+                crash_input = []
+                for _, var in vars:
+                    bytestr = b""
+                    for i, c in enumerate(var.chop(8)):
+                        constraint = claripy.And(c == 0x42, c == 0x42)
+                        if self.state.solver.satisfiable([constraint]):
+                            self.state.add_constraints(constraint)
+                        bytestr += self.state.solver.eval(c).to_bytes(1, context.endian)
+                    print(bytestr)
+                    crash_input.append(bytestr)
+
+                self.state.globals["input"] = crash_input
                 self.state.globals["type"] = "fmt"
                 self.state.globals["position"] = buffer_position
                 self.state.globals["length"] = buffer_length
 
-                return True
+            return True
 
         return False
 
+
+
+    def can_constrain_bytes(self, state, loc, position, length, strVal=b"%x_"):
+        total_region = self.state.memory.load(loc + position, length)
+        total_format = strVal * length
+        # If we can constrain it all in one go, then let's do it!
+        if state.solver.satisfiable(
+            extra_constraints=[total_region == total_format[:length]]
+        ):
+            log.info("Can constrain it all, let's go!")
+            state.add_constraints(total_region == total_format[:length])
+            return True
+
+        for i in tqdm.tqdm(range(length), total=length, desc="Checking Constraints"):
+            strValIndex = i % len(strVal)
+            curr_byte = self.state.memory.load(loc + i, 1)
+            if not state.solver.satisfiable(
+                extra_constraints=[curr_byte == strVal[strValIndex]]
+            ):
+                return False
+        return True
+
+    def constrainBytes(self, state, loc, position, length, strVal=b"%x_"):
+
+        total_region = self.state.memory.load(loc + position, length)
+        total_format = strVal * length
+        # If we can constrain it all in one go, then let's do it!
+        if state.solver.satisfiable(
+            extra_constraints=[total_region == total_format[:length]]
+        ):
+            log.info("Can constrain it all, let's go!")
+            state.add_constraints(total_region == total_format[:length])
+            return
+
+        for i in tqdm.tqdm(range(length), total=length, desc="Constraining"):
+            strValIndex = i % len(strVal)
+            curr_byte = self.state.memory.load(loc + i, 1)
+            if state.solver.satisfiable(
+                extra_constraints=[curr_byte == strVal[strValIndex]]
+            ):
+                state.add_constraints(curr_byte == strVal[strValIndex])
+            else:
+                log.info(
+                    "[~] Byte {} not constrained to {}".format(i, strVal[strValIndex])
+                )
+
     def run(self, _, fmt):
-        if not self.detect_vuln(fmt):
+        if not self.vulnerable(fmt):
             return super(type(self), self).run(fmt)

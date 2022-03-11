@@ -86,6 +86,7 @@ def detect_overflow(binary: Binary):
 
     # Setup state based on input type
     argv = [binary.elf.path]
+    # get_args
     # symbolic_input = claripy.BVS("input", 300 * 8)
     input_type = binary.detect_input_type()
     # if input_type == "STDIN":
