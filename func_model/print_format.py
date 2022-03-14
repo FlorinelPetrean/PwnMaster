@@ -46,10 +46,9 @@ class PrintFormat(angr.procedures.libc.printf.printf):
         self.format_index = format_index
         angr.procedures.libc.printf.printf.__init__(self)
 
-    def vulnerable(self, fmt):
+    def is_vulnerable(self, fmt):
 
-        bits = self.state.arch.bits
-        max_read_len = 100 * 8
+        max_read_len = 1024
         """
         For each value passed to printf
         Check to see if there are any symbolic bytes
@@ -63,24 +62,30 @@ class PrintFormat(angr.procedures.libc.printf.printf):
 
         # Parts of this argument could be symbolic, so we need
         # to check every byte
-        var_data = self.state.memory.load(format_addr, max_read_len)
-        var_len = get_max_strlen(self.state, var_data)
+        old_format_data = self.state.memory.load(format_addr, max_read_len)
+        max_len = get_max_strlen(self.state, old_format_data)
 
-        # self._sim_strlen(fmt)
+        self._sim_strlen(fmt)
 
         # Reload with just our max len
-        var_data = self.state.memory.load(format_addr, var_len * 8)
+        format_data = self.state.memory.load(format_addr, max_len)
 
+        buffer_position = None
         buffer_length = 0
-        largest_buffer_position = 0
+        largest_buffer_position = buffer_position
         largest_buffer_length = buffer_length
-        for index, c in enumerate(var_data.chop(8)):
-            if not is_char_symbolic(c) or self.state.solver.eval(c) == b'\x00':
+        for index, c in enumerate(format_data.chop(8)):
+            if not c.symbolic or index == max_len - 1:
                 if largest_buffer_length < buffer_length:
                     largest_buffer_length = buffer_length
-                    largest_buffer_position = index - buffer_length
+                    largest_buffer_position = buffer_position
+                    buffer_position = None
                 buffer_length = 0
+                if index == max_len - 1:
+                    break
             else:
+                if buffer_position is None:
+                    buffer_position = index
                 buffer_length += 1
 
         buffer_position = largest_buffer_position
@@ -91,108 +96,42 @@ class PrintFormat(angr.procedures.libc.printf.printf):
                 buffer_position, buffer_length
             )
         )
-        buffer = self.state.memory.load(format_addr + buffer_position, buffer_length * 8)
+
+        buffer = self.state.memory.load(format_addr + buffer_position, buffer_length)
 
         if buffer_length > 0:
-            constrained = True
-            # str_val = b"%lx|" if bits == 32 else b"%llx|"
             str_val = b"F"
-            concrete_buffer_val = str_val * (buffer_length // len(str_val))
-            # if self.state.solver.satisfiable(extra_constraints=[buffer == concrete_buffer_val]):
-            #     self.state.add_constraints(buffer == concrete_buffer_val)
-            #     constrained = True
-            # else:
-            # for index, c in enumerate(buffer.chop(8)):
-            #     if self.state.solver.satisfiable(extra_constraints=[c == b"F"]):
-            #         self.state.add_constraints(c == b"F")
-            #     else:
-            #         constrained = False
+            buffer_val = str_val * buffer_length
 
-            if self.can_constrain_bytes(
-                self.state, format_addr, buffer_position, buffer_length, strVal=str_val
-            ):
-                log.info("[+] Can constrain bytes")
-                log.info("[+] Constraining input to leak")
+            if self.state.solver.satisfiable(extra_constraints=[buffer == buffer_val[:buffer_length]]):
+                log.info("Can constrain it all, let's go!")
+                self.state.add_constraints(buffer == buffer_val[:buffer_length])
+            else:
+                for index, c in enumerate(buffer.chop(8)):
+                    if self.state.solver.satisfiable(extra_constraints=[c == buffer_val[index]]):
+                        self.state.add_constraints(c == buffer_val[index])
 
-                self.constrainBytes(
-                    self.state,
-                    format_addr,
-                    buffer_position,
-                    buffer_length,
-                    strVal=str_val,
-                )
+            vars = list(self.state.solver.get_variables('file', 'stdin'))
+            crash_input = []
+            for _, var in vars:
+                bytestr = b""
+                for i, c in enumerate(var.chop(8)):
+                    constraint = c == 0x42
+                    if self.state.solver.satisfiable([constraint]):
+                        self.state.add_constraints(constraint)
+                    bytestr += self.state.solver.eval(c).to_bytes(1, context.endian)
+                print(bytestr)
+                crash_input.append(bytestr)
 
-                # print(self.state.globals["user_input"].variables)
-                # if constrained is True:
-                # self.state.globals["input"] = self.state.solver.eval(self.state.globals["user_input"], cast_to=bytes)
-
-                vars = list(self.state.solver.get_variables('file', 'stdin'))
-                crash_input = []
-                for _, var in vars:
-                    bytestr = b""
-                    for i, c in enumerate(var.chop(8)):
-                        constraint = claripy.And(c == 0x42, c == 0x42)
-                        if self.state.solver.satisfiable([constraint]):
-                            self.state.add_constraints(constraint)
-                        bytestr += self.state.solver.eval(c).to_bytes(1, context.endian)
-                    print(bytestr)
-                    crash_input.append(bytestr)
-
-                self.state.globals["input"] = crash_input
-                self.state.globals["type"] = "fmt"
-                self.state.globals["position"] = buffer_position
-                self.state.globals["length"] = buffer_length
+            self.state.globals["input"] = crash_input
+            self.state.globals["type"] = "fmt"
+            self.state.globals["position"] = buffer_position
+            self.state.globals["length"] = buffer_length
 
             return True
 
         return False
 
-
-
-    def can_constrain_bytes(self, state, loc, position, length, strVal=b"%x_"):
-        total_region = self.state.memory.load(loc + position, length)
-        total_format = strVal * length
-        # If we can constrain it all in one go, then let's do it!
-        if state.solver.satisfiable(
-            extra_constraints=[total_region == total_format[:length]]
-        ):
-            log.info("Can constrain it all, let's go!")
-            state.add_constraints(total_region == total_format[:length])
-            return True
-
-        for i in tqdm.tqdm(range(length), total=length, desc="Checking Constraints"):
-            strValIndex = i % len(strVal)
-            curr_byte = self.state.memory.load(loc + i, 1)
-            if not state.solver.satisfiable(
-                extra_constraints=[curr_byte == strVal[strValIndex]]
-            ):
-                return False
-        return True
-
-    def constrainBytes(self, state, loc, position, length, strVal=b"%x_"):
-
-        total_region = self.state.memory.load(loc + position, length)
-        total_format = strVal * length
-        # If we can constrain it all in one go, then let's do it!
-        if state.solver.satisfiable(
-            extra_constraints=[total_region == total_format[:length]]
-        ):
-            log.info("Can constrain it all, let's go!")
-            state.add_constraints(total_region == total_format[:length])
-            return
-
-        for i in tqdm.tqdm(range(length), total=length, desc="Constraining"):
-            strValIndex = i % len(strVal)
-            curr_byte = self.state.memory.load(loc + i, 1)
-            if state.solver.satisfiable(
-                extra_constraints=[curr_byte == strVal[strValIndex]]
-            ):
-                state.add_constraints(curr_byte == strVal[strValIndex])
-            else:
-                log.info(
-                    "[~] Byte {} not constrained to {}".format(i, strVal[strValIndex])
-                )
-
     def run(self, _, fmt):
-        if not self.vulnerable(fmt):
+        if not self.is_vulnerable(fmt):
             return super(type(self), self).run(fmt)

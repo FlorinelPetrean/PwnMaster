@@ -7,24 +7,23 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class PutsHook(angr.procedures.libc.puts.puts):
+class PutsLeak(angr.SimProcedure):
     IS_FUNCTION = True
 
     def check_for_leak(self, string):
 
         state = self.state
 
-        if state.globals["needs_leak"] or True:
-            # string should be a ptr, we are going to check
-            # to see if it's pointing to a got entry
-            elf = ELF(state.project.filename)
-            string_addr = state.solver.eval(string)
-            for name, addr in elf.got.items():
-                if string_addr == addr:
-                    log.info("[+] Puts leaked {}".format(name))
-                    state.globals["output_before_leak"] = state.posix.dumps(1)
-                    state.globals["leaked_func"] = name
-                    # return True
+        # string should be a ptr, we are going to check
+        # to see if it's pointing to a got entry
+        elf = ELF(state.project.filename)
+        string_addr = state.solver.eval(string)
+        for name, addr in elf.got.items():
+            if string_addr == addr:
+                log.info("[+] Puts leaked {}".format(name))
+                state.globals["output_before_leak"] = state.posix.dumps(1)
+                state.globals["leaked_func"] = name
+                return True
 
         return False
 
