@@ -8,7 +8,8 @@ from func_model.rand import *
 from func_model.exit import *
 from func_model.scanf import *
 from func_model.gets import *
-from func_model.print_format import *
+from func_model.printf_leak import *
+from func_model.puts_leak import *
 
 # from func_model.print_format import *
 
@@ -28,18 +29,20 @@ def detect_leak(binary: Binary):
     p.hook_symbol("exit", ExitHook(), replace=True)
 
     # Stdio based ones
-    p.hook_symbol("printf", PrintFormat(0), replace=True)
-    p.hook_symbol("fprintf", PrintFormat(1))
-    p.hook_symbol("dprintf", PrintFormat(1))
-    p.hook_symbol("sprintf", PrintFormat(1))
-    p.hook_symbol("snprintf", PrintFormat(2))
+    p.hook_symbol("printf", PrintfLeak(0), replace=True)
+    p.hook_symbol("fprintf", PrintfLeak(1))
+    p.hook_symbol("dprintf", PrintfLeak(1))
+    p.hook_symbol("sprintf", PrintfLeak(1))
+    p.hook_symbol("snprintf", PrintfLeak(2))
 
     # Stdarg base ones
-    p.hook_symbol("vprintf", PrintFormat(0))
-    p.hook_symbol("vfprintf", PrintFormat(1))
-    p.hook_symbol("vdprintf", PrintFormat(1))
-    p.hook_symbol("vsprintf", PrintFormat(1))
-    p.hook_symbol("vsnprintf", PrintFormat(2))
+    p.hook_symbol("vprintf", PrintfLeak(0))
+    p.hook_symbol("vfprintf", PrintfLeak(1))
+    p.hook_symbol("vdprintf", PrintfLeak(1))
+    p.hook_symbol("vsprintf", PrintfLeak(1))
+    p.hook_symbol("vsnprintf", PrintfLeak(2))
+
+    p.hook_symbol("puts", PutsLeak)
 
     # symbolic_input = claripy.BVS("input", 300 * 8)
     input_type = binary.detect_input_type()

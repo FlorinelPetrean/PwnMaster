@@ -3,30 +3,24 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-void bla(int i) {
-    system("/bin/sh\n");
-
-}
 
 void vuln() {
     printf("Hello vuln!");
     char buf[100];
     char magic1[10];
-    fgets(magic1, 10, stdin);
+    read(0, magic1, 10);
     if (strncmp(magic1, "magic1", 6) == 0) {
         gets(buf);
-        printf(buf);
+        char fmt[150] = "TEST";
+        strcat(fmt, buf);
+        printf("%d", gets);
     }
-//    char binsh[15];
-//    gets(binsh);
-//    printf(binsh);
-    exit(1);
 }
 
 int main() {
 
     vuln();
-    printf("bin/sh\n");
+    printf("Go to return!\n");
 
     return 0;
 }

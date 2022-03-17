@@ -7,6 +7,7 @@
 from binary.binary import Binary
 from binary.rop_exploiter import RopExploiter
 from binary.sc_exploiter import ShellcodeExploiter
+from binary.fmt_exploiter import FmtExploiter
 from binary.bof_detector import *
 from binary.fmt_detector import *
 from pwn import *
@@ -26,3 +27,6 @@ if __name__ == '__main__':
     #     exploiter.ret2dlresolve()
     vuln_details = detect_format_string(binary)
     print(vuln_details)
+    exploiter = FmtExploiter(binary, vuln_details)
+    exploiter.apply_fmt()
+

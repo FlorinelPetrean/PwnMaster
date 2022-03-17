@@ -2,27 +2,10 @@ from pwn import *
 import angr
 import claripy
 import tqdm
-from .simgr_helper import get_trimmed_input
 import logging
 import copy
 
 log = logging.getLogger(__name__)
-
-
-# Better symbolic strlen
-def get_max_strlen(state, value):
-    i = 0
-    for c in value.chop(8):  # Chop by byte
-        i += 1
-        if not state.solver.satisfiable([c != 0x00]):
-            log.debug("Found the null at offset : {}".format(i))
-            return i - 1
-    return i
-
-
-"""
-Model either printf("User input") or printf("%s","Userinput")
-"""
 
 
 class PrintfLeak(angr.procedures.libc.printf.printf):
@@ -41,8 +24,6 @@ class PrintfLeak(angr.procedures.libc.printf.printf):
     def check_for_leak(self, fmt):
 
         bits = self.state.arch.bits
-        load_len = int(bits / 8)
-        max_read_len = 1024
         """
         For each value passed to printf
         Check to see if there are any symbolic bytes
@@ -50,21 +31,18 @@ class PrintfLeak(angr.procedures.libc.printf.printf):
         """
         state = self.state
         p = self.state.project
-        elf = ELF(state.project.filename)
+        elf = ELF(p.filename)
 
         fmt_str = self._parse(fmt)
 
         for component in fmt_str.components:
 
             # We only want format specifiers
-            if (
-                    isinstance(component, bytes)
-                    or isinstance(component, str)
-                    or isinstance(component, claripy.ast.BV)
+            if (isinstance(component, bytes)
+                or isinstance(component, str)
+                or isinstance(component, claripy.ast.BV)
             ):
                 continue
-
-            printf_arg = component
 
             fmt_spec = component
 
@@ -136,20 +114,23 @@ class PrintfLeak(angr.procedures.libc.printf.printf):
 
                 state.globals["leak_input"] = input_bytes
                 state.globals["leak_output"] = state.posix.dumps(1)
-            # Check tracked malloc addrs
-            if "stored_malloc" in self.state.globals.keys():
-                for addr in self.state.globals["stored_malloc"]:
-                    if addr == var_addr:
-                        log.info("[+] Leaked a heap addr : {}".format(hex(var_addr)))
-                        state.globals["leaked_type"] = "heap_address"
-                        state.globals["leaked_addr"] = var_addr
+                return True
 
-                        # Input to leak
-                        user_input = state.globals["user_input"]
-                        input_bytes = state.solver.eval(user_input, cast_to=bytes)
-
-                        state.globals["leak_input"] = input_bytes
-                        state.globals["leak_output"] = state.posix.dumps(1)
+            # # Check tracked malloc addrs
+            # if "stored_malloc" in self.state.globals.keys():
+            #     for addr in self.state.globals["stored_malloc"]:
+            #         if addr == var_addr:
+            #             log.info("[+] Leaked a heap addr : {}".format(hex(var_addr)))
+            #             state.globals["leaked_type"] = "heap_address"
+            #             state.globals["leaked_addr"] = var_addr
+            #
+            #             # Input to leak
+            #             user_input = state.globals["user_input"]
+            #             input_bytes = state.solver.eval(user_input, cast_to=bytes)
+            #
+            #             state.globals["leak_input"] = input_bytes
+            #             state.globals["leak_output"] = state.posix.dumps(1)
+            #             return True
 
     def run(self, fmt):
         """
