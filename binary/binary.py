@@ -43,12 +43,12 @@ class Binary:
     def get_base_address(self):
         return self.elf.address
 
-    def adjust_binary_base(self, leak_addr):
-        self.elf.address = leak_addr - self.libc.sym['puts']
+    def adjust_binary_base(self, leak_addr, function):
+        self.elf.address = leak_addr - self.libc.sym[function]
         log.success(f'binary base: {hex(self.elf.address)}')
 
-    def adjust_libc_base(self, puts_addr):
-        self.libc.address = puts_addr - self.libc.sym['puts']
+    def adjust_libc_base(self, leak_addr, function):
+        self.libc.address = leak_addr - self.libc.sym[function]
         log.success(f'libc base: {hex(self.libc.address)}')
 
     def find_function(self, function, search_libc=False):
