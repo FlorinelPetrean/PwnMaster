@@ -3,10 +3,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-void bla(int i) {
-    system("/bin/sh\n");
-
-}
 
 void vuln() {
     puts("Hello vuln!");
@@ -27,7 +23,6 @@ void vuln() {
 int main() {
 
     vuln();
-    printf("bin/sh\n");
 
     return 0;
 }
