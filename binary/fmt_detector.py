@@ -15,7 +15,7 @@ from func_model.print_format import *
 log = logging.getLogger(__name__)
 
 
-# logging.getLogger("angr").setLevel("CRITICAL")
+logging.getLogger("angr").setLevel("CRITICAL")
 
 
 def detect_format_string(binary: Binary):

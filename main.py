@@ -23,8 +23,8 @@ if __name__ == '__main__':
     #     exploiter.exploit()
     # else:
     #     exploiter = RopExploiter(binary, vuln_details)
-    #     # exploiter.exploit()
-    #     exploiter.ret2dlresolve()
+    #     exploiter.exploit()
+    #     # exploiter.ret2dlresolve()
     vuln_details = detect_format_string(binary)
     print(vuln_details)
     exploiter = FmtExploiter(binary, vuln_details)
