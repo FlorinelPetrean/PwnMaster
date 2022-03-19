@@ -102,10 +102,11 @@ class PrintFormat(angr.procedures.libc.printf.printf):
             for _, var in vars:
                 bytestr = b""
                 for i, c in enumerate(var.chop(8)):
-                    # constraint = c == 0x42
+                    # constraint = c != 0x00
                     # if self.state.solver.satisfiable([constraint]):
                     #     self.state.add_constraints(constraint)
                     bytestr += self.state.solver.eval(c).to_bytes(1, context.endian)
+                # bytestr = bytestr.replace(b'\x00', b'')
                 print(bytestr)
                 fmt_input.append(bytestr)
 

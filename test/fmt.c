@@ -11,6 +11,7 @@ void vuln() {
     fgets(magic1, 10, stdin);
     if (strncmp(magic1, "magic1", 6) == 0) {
 //        fgets(buf, 200, stdin);
+
         gets(buf);
         printf(buf);
     }
