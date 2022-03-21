@@ -1,5 +1,8 @@
+import json
 from pwn import *
+import r2pipe
 from subprocess import Popen, PIPE
+from pylibcdb.LibcDB import LibcDB
 
 context.arch = 'amd64'
 
@@ -43,11 +46,25 @@ class Binary:
     def get_base_address(self):
         return self.elf.address
 
-    def adjust_binary_base(self, leak_addr, function):
-        self.elf.address = leak_addr - self.libc.sym[function]
+    def get_base_addr(self):
+        r2 = r2pipe.open(self.bin_path, flags=['-e io.cache=true'])
+        r2.cmd("doo")
+        info = json.loads(r2.cmd("iMj"))
+        base_addr = info["vaddr"] - info["paddr"]
+        r2.quit()
+        log.info("Base address: {}".format(hex(base_addr)))
+        return base_addr
+
+    def adjust_binary_base(self, baddr):
+        self.elf.address = baddr
         log.success(f'binary base: {hex(self.elf.address)}')
 
     def adjust_libc_base(self, leak_addr, function):
+        if self.libc is None:
+            libcdb = LibcDB("/home/florin/PycharmProjects/PwnMaster/libc-database")
+            libc_name = libcdb.find_by_address(leak_addr, symbol=function)
+            libc_path = libcdb.download_by_name(libc_name)
+            self.libc = ELF(libc_path)
         self.libc.address = leak_addr - self.libc.sym[function]
         log.success(f'libc base: {hex(self.libc.address)}')
 

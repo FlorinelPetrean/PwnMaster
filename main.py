@@ -28,6 +28,9 @@ if __name__ == '__main__':
     vuln_details = detect_format_string(binary)
     print(vuln_details)
     exploiter = FmtExploiter(binary, vuln_details)
-    exploiter.apply_fmt1()
+    # exploiter.apply_loop_fmt()
     # exploiter.arbitrary_read(binary.elf.got['fgets'])
+    exploiter.find_base_address()
+    # exploiter.find_pie_off_r2()
+    # exploiter.find_pie_off_gdb()
 

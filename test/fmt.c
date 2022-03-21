@@ -20,7 +20,8 @@ void vuln() {
             printf(buf);
         }
     }
-    exit(1);
+//    exit(1);
+    strcat(fmt, buf);
 }
 
 int main() {
