@@ -30,7 +30,7 @@ if __name__ == '__main__':
     exploiter = FmtExploiter(binary, vuln_details)
     # exploiter.apply_loop_fmt()
     # exploiter.arbitrary_read(binary.elf.got['fgets'])
-    exploiter.find_base_address()
-    # exploiter.find_pie_off_r2()
-    # exploiter.find_pie_off_gdb()
+    # exploiter.find_base_address()
+    # exploiter.find_canary_offset()
+    exploiter.find_pie_offset()
 

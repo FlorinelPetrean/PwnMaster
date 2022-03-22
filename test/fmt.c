@@ -21,7 +21,7 @@ void vuln() {
         }
     }
 //    exit(1);
-    strcat(fmt, buf);
+//    strcat(fmt, buf);
 }
 
 int main() {
