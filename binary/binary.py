@@ -46,17 +46,8 @@ class Binary:
     def get_base_address(self):
         return self.elf.address
 
-    def get_base_addr(self):
-        r2 = r2pipe.open(self.bin_path, flags=['-e io.cache=true'])
-        r2.cmd("doo")
-        info = json.loads(r2.cmd("iMj"))
-        base_addr = info["vaddr"] - info["paddr"]
-        r2.quit()
-        log.info("Base address: {}".format(hex(base_addr)))
-        return base_addr
-
-    def adjust_binary_base(self, baddr):
-        self.elf.address = baddr
+    def adjust_binary_base(self, base_addr):
+        self.elf.address = base_addr
         log.success(f'binary base: {hex(self.elf.address)}')
 
     def adjust_libc_base(self, leak_addr, function):

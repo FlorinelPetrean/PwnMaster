@@ -20,8 +20,11 @@ void vuln() {
             printf(buf);
         }
     }
+    char magic3[10];
+    fgets(magic3, 10, stdin);
+
 //    exit(1);
-//    strcat(fmt, buf);
+    strcat(fmt, buf);
 }
 
 int main() {

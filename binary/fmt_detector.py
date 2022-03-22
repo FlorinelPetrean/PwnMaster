@@ -18,6 +18,20 @@ log = logging.getLogger(__name__)
 logging.getLogger("angr").setLevel("CRITICAL")
 
 
+def get_stdin_input(state):
+    vars = list(state.solver.get_variables('file', 'stdin'))
+    fmt_input = []
+    for _, var in vars:
+        bytestr = b""
+        for i, c in enumerate(var.chop(8)):
+            if state.satisfiable(extra_constraints=[c == 0x42]):
+                state.add_constraints(c == 0x42)
+            bytestr += state.solver.eval(c).to_bytes(1, context.endian)
+        print(bytestr)
+        fmt_input.append(bytestr)
+    return fmt_input
+
+
 def detect_format_string(binary: Binary):
     context.binary = binary.elf
     p = angr.Project(binary.bin_path, load_options={"auto_load_libs": False})
@@ -51,6 +65,7 @@ def detect_format_string(binary: Binary):
     state.globals["input_type"] = input_type
     state.globals["exit"] = False
     simgr = p.factory.simgr(state, save_unconstrained=True)
+    print(simgr.stashes)
     vuln_details = {}
     # Lame way to do a timeout
     try:
@@ -65,12 +80,14 @@ def detect_format_string(binary: Binary):
         explore_binary(simgr)
 
         if "found" in simgr.stashes and len(simgr.found):
-            end_state = simgr.found[0]
-            # print("input", end_state.posix.dumps(0))
-            # print("output", end_state.posix.dumps(1))
-
+            end_state : angr.SimState = simgr.found[0]
+            simgr.move(from_stash='found', to_stash='active')
+            simgr.explore(
+            )
+            print(simgr.stashes)
+            last_state = simgr.pruned[0]
             vuln_details["type"] = end_state.globals["type"]
-            vuln_details["input"] = end_state.globals["input"]
+            vuln_details["input"] = get_stdin_input(last_state)
             vuln_details["position"] = end_state.globals["position"]
             vuln_details["length"] = end_state.globals["length"]
             vuln_details["output"] = end_state.posix.dumps(1)
