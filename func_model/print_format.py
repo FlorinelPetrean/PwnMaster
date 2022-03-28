@@ -97,16 +97,6 @@ class PrintFormat(angr.procedures.libc.printf.printf):
                     if self.state.solver.satisfiable(extra_constraints=[c == buffer_val[index]]):
                         self.state.add_constraints(c == buffer_val[index])
 
-            # vars = list(self.state.solver.get_variables('file', 'stdin'))
-            # fmt_input = []
-            # for _, var in vars:
-            #     bytestr = b""
-            #     for i, c in enumerate(var.chop(8)):
-            #         bytestr += self.state.solver.eval(c).to_bytes(1, context.endian)
-            #     print(bytestr)
-            #     fmt_input.append(bytestr)
-            #
-            # self.state.globals["input"] = fmt_input
             self.state.globals["type"] = "fmt"
             self.state.globals["position"] = buffer_position
             self.state.globals["length"] = buffer_length
@@ -118,3 +108,4 @@ class PrintFormat(angr.procedures.libc.printf.printf):
     def run(self, fmt):
         if not self.is_vulnerable():
             return super(type(self), self).run(fmt)
+

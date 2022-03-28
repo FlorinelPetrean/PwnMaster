@@ -6,7 +6,7 @@
 
 void vuln() {
     puts("Hello vuln!");
-    char buf[100];
+    char buf[10];
     char fmt[100] = "test";
     char magic1[10];
     char magic2[10];

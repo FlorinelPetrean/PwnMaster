@@ -80,14 +80,13 @@ def detect_format_string(binary: Binary):
         explore_binary(simgr)
 
         if "found" in simgr.stashes and len(simgr.found):
-            end_state : angr.SimState = simgr.found[0]
-            simgr.move(from_stash='found', to_stash='active')
-            simgr.explore(
-            )
+            exploit_state : angr.SimState = simgr.found[0]
+            simgr = p.factory.simgr(exploit_state, save_unconstrained=True)
+            simgr.explore()
             print(simgr.stashes)
-            last_state = simgr.pruned[0]
+            end_state = simgr.pruned[0]
             vuln_details["type"] = end_state.globals["type"]
-            vuln_details["input"] = get_stdin_input(last_state)
+            vuln_details["input"] = get_stdin_input(end_state)
             vuln_details["position"] = end_state.globals["position"]
             vuln_details["length"] = end_state.globals["length"]
             vuln_details["output"] = end_state.posix.dumps(1)

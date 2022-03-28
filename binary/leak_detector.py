@@ -17,7 +17,18 @@ log = logging.getLogger(__name__)
 
 
 # logging.getLogger("angr").setLevel("CRITICAL")
-
+def get_stdin_input(state):
+    vars = list(state.solver.get_variables('file', 'stdin'))
+    fmt_input = []
+    for _, var in vars:
+        bytestr = b""
+        for i, c in enumerate(var.chop(8)):
+            if state.satisfiable(extra_constraints=[c == 0x42]):
+                state.add_constraints(c == 0x42)
+            bytestr += state.solver.eval(c).to_bytes(1, context.endian)
+        print(bytestr)
+        fmt_input.append(bytestr)
+    return fmt_input
 
 def detect_leak(binary: Binary):
     context.binary = binary.elf
@@ -68,13 +79,14 @@ def detect_leak(binary: Binary):
         explore_binary(simgr)
 
         if "found" in simgr.stashes and len(simgr.found):
-            end_state = simgr.found[0]
-            # print("input", end_state.posix.dumps(0))
-            # print("output", end_state.posix.dumps(1))
-
+            exploit_state: angr.SimState = simgr.found[0]
+            simgr = p.factory.simgr(exploit_state, save_unconstrained=True)
+            simgr.explore()
+            print(simgr.stashes)
+            end_state = simgr.pruned[0]
             vuln_details["type"] = end_state.globals["type"]
-            vuln_details["input"] = end_state.globals["input"]
-            vuln_details["position"] = end_state.globals["position"]
+            vuln_details["input"] = get_stdin_input(end_state)
+            vuln_details["leak"] = end_state.globals["leak"]
             vuln_details["length"] = end_state.globals["length"]
             vuln_details["output"] = end_state.posix.dumps(1)
 

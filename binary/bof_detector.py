@@ -8,6 +8,8 @@ from func_model.rand import *
 from func_model.exit import *
 from func_model.scanf import *
 from func_model.gets import *
+from func_model.printf_dummy import *
+
 
 # from func_model.print_format import *
 
@@ -39,25 +41,21 @@ def bof_filter(simgr: angr.sim_manager):
                 else:
                     break
 
-            print(list(state.solver.get_variables('mem')))
             vars = list(state.solver.get_variables('file', 'stdin'))
             crash_input = []
             for _, var in vars:
-                var_val = b""
+                bytestr = b""
                 for i, c in enumerate(var.chop(8)):
                     constraint = claripy.And(c == 0x42, c == 0x42)
                     if state.solver.satisfiable([constraint]):
                         state.add_constraints(constraint)
-                    var_val += state.solver.eval(c).to_bytes(1, context.endian)
-                print(var_val)
-                if pc_value in var_val:
-                    offset = var_val.index(pc_value)
-                    controlled_bytes = var_val[0:offset].count(b"B")
+                    bytestr += state.solver.eval(c).to_bytes(1, context.endian)
+                print(bytestr)
+                if pc_value in bytestr:
+                    offset = bytestr.index(pc_value)
+                    controlled_bytes = bytestr[0:offset].count(b"B")
                     state.globals["control_before_ret"] = controlled_bytes
-                crash_input.append(var_val)
-
-            # for buf_addr in find_symbolic_buffer(state, 10):
-            #     log.info("found symbolic buffer at %#x", buf_addr)
+                crash_input.append(bytestr)
 
             state.globals["type"] = "bof"
             if "control_after_ret" not in state.globals:
@@ -79,29 +77,14 @@ def detect_overflow(binary: Binary):
     # Hook exit
     p.hook_symbol("exit", ExitHook(), replace=True)
 
-    # p.hook_symbol("scanf", ScanfHook())
     p.hook_symbol("gets", GetsHook(), replace=True)
-
-    # p.hook_symbol("printf", PrintFormat(0))
-
-    # Setup state based on input type
-    argv = [binary.elf.path]
-    # get_args
-    # symbolic_input = claripy.BVS("input", 300 * 8)
-    input_type = binary.detect_input_type()
-    # if input_type == "STDIN":
-    #     state = p.factory.full_init_state(args=argv, stdin=symbolic_input)
-    #     state.globals["user_input"] = symbolic_input
-    # else:
-    #     argv.append(symbolic_input)
-    #     state = p.factory.full_init_state(args=argv, stdin=symbolic_input)
-    #     state.globals["user_input"] = symbolic_input
+    p.hook_symbol("printf", PrintfDummy(), replace=True)
 
     state = p.factory.entry_state()
 
     state.libc.buf_symbolic_bytes = 0x100
     state.libc.max_gets_size = 0x100
-    state.globals["input_type"] = input_type
+    # state.globals["input_type"] = input_type
     state.globals["exit"] = False
     simgr = p.factory.simgr(state, save_unconstrained=True)
     vuln_details = {}
