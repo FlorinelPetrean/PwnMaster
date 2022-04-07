@@ -45,14 +45,13 @@ class BofDetector:
     def bof_filter(self, simgr: angr.sim_manager):
         for state in simgr.unconstrained:
             bits = state.arch.bits
-            addr_size = bits // 8
             # Check satisfiability
             if state.solver.satisfiable(extra_constraints=[state.regs.pc == self.pc_value]):
                 log.info("Found vulnerable state.")
                 state.add_constraints(state.regs.pc == self.pc_value)
 
                 sp = state.callstack.current_stack_pointer
-                buf_mem = state.memory.load(sp - addr_size, 300 * 8)
+                buf_mem = state.memory.load(sp - context.bytes, 300 * 8)
                 control_after_ret = 0
 
                 for index, c in enumerate(buf_mem.chop(8)):
@@ -76,6 +75,7 @@ class BofDetector:
     def explore_binary(self, p, state):
         simgr = p.factory.simgr(state, save_unconstrained=True)
         vuln_details = {}
+        end_state = None
         # Lame way to do a timeout
         try:
 
@@ -87,7 +87,9 @@ class BofDetector:
                 )
 
             explore_binary(simgr)
-
+            print(simgr.stashes)
+            if "deadended" in simgr.stashes:
+                print(self.get_stdin_input(simgr.deadended[0]))
             if "found" in simgr.stashes and len(simgr.found):
                 end_state = simgr.found[0]
                 vuln_details["type"] = end_state.globals["type"]
@@ -99,10 +101,10 @@ class BofDetector:
         except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
             log.info("[~] Keyboard Interrupt")
 
-        return vuln_details
+        return vuln_details, end_state
 
-    def detect_overflow(self):
-        p = angr.Project(self.binary.bin_path, load_options={"auto_load_libs": False})
+    def detect_overflow(self, p=None, state=None):
+        p = angr.Project(self.binary.bin_path, load_options={"auto_load_libs": False}) if p is None else p
         # Hook rands
         p.hook_symbol("rand", RandHook())
         p.hook_symbol("srand", RandHook())
@@ -112,7 +114,7 @@ class BofDetector:
         p.hook_symbol("gets", GetsHook(), replace=True)
         p.hook_symbol("printf", PrintfDummy(), replace=True)
 
-        state = p.factory.entry_state()
+        state = p.factory.entry_state() if state is None else state
 
         state.libc.buf_symbolic_bytes = 0x100
         state.libc.max_gets_size = 0x100

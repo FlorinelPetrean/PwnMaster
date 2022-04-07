@@ -4,13 +4,11 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
 # Press the green button in the gutter to run the script.
+
+
 from binary.binary import Binary
-from binary.rop_exploiter import RopExploiter
-from binary.sc_exploiter import ShellcodeExploiter
-from binary.fmt_exploiter import FmtExploiter
-from binary.bof_detector import *
-from binary.fmt_detector import *
-from binary.leak_detector import *
+from binary.fmt_bof_detector import FmtBofDetector
+from binary.both_detector import BothDetector
 from pwn import *
 import argparse
 import sys
@@ -18,22 +16,12 @@ import sys
 if __name__ == '__main__':
     binary_path = sys.argv[1]
     binary = Binary(binary_path)
-    vuln_details = detect_overflow(binary)
-    print(vuln_details)
-    # if not binary.protection['nx']:
-    #     exploiter = ShellcodeExploiter(binary, vuln_details)
-    #     exploiter.exploit()
-    # else:
-    #     exploiter = RopExploiter(binary, vuln_details)
-    #     exploiter.two_stage_exploit()
-        # exploiter.ret2dlresolve()
-    vuln_details = detect_format_string(binary)
-    print(vuln_details)
-    # exploiter = FmtExploiter(binary, vuln_details)
-    # exploiter.apply_loop_fmt()
-    # exploiter.arbitrary_read(binary.elf.got['fgets'])
-    # exploiter.find_base_address()
-    # exploiter.find_canary_offset()
-    # exploiter.find_pie_offset()
+    fmt_bof_detector = FmtBofDetector(binary)
+    fmt_bof_detector.explore_binary()
+    # both_detector = BothDetector(binary)
+    # vuln_details, _ = both_detector.both_detect()
+    # print(vuln_details)
+
+
 
 

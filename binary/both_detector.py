@@ -4,6 +4,8 @@ from binary.binary import *
 import claripy
 import timeout_decorator
 import logging
+
+from func_model.printf_dummy import PrintfDummy
 from func_model.rand import *
 from func_model.exit import *
 from func_model.scanf import *
@@ -17,11 +19,12 @@ log = logging.getLogger(__name__)
 logging.getLogger("angr").setLevel("CRITICAL")
 
 
-class FmtDetector:
+class BothDetector:
 
     def __init__(self, binary):
         self.binary = binary
         context.binary = binary.elf
+        self.pc_value = b"X" * context.bytes
 
     def get_stdin_input(self, state):
         vars = list(state.solver.get_variables('file', 'stdin'))
@@ -35,6 +38,36 @@ class FmtDetector:
             print(bytestr)
             fmt_input.append(bytestr)
         return fmt_input
+
+    def bof_filter(self, simgr: angr.sim_manager):
+        for state in simgr.unconstrained:
+            bits = state.arch.bits
+            # Check satisfiability
+            if state.solver.satisfiable(extra_constraints=[state.regs.pc == self.pc_value]):
+                log.info("Found vulnerable state.")
+                state.add_constraints(state.regs.pc == self.pc_value)
+
+                sp = state.callstack.current_stack_pointer
+                buf_mem = state.memory.load(sp - context.bytes, 300 * 8)
+                control_after_ret = 0
+
+                for index, c in enumerate(buf_mem.chop(8)):
+                    constraint = claripy.And(c == b"P", c == b"P")
+                    if state.solver.satisfiable([constraint]):
+                        state.add_constraints(constraint)
+                        control_after_ret += 1
+                    else:
+                        break
+
+                state.globals["type"] = "bof"
+                if "control_after_ret" not in state.globals:
+                    state.globals["control_after_ret"] = control_after_ret
+                state.globals["input"] = self.get_stdin_input(state)
+                simgr.stashes["found"].append(state)
+                simgr.stashes["unconstrained"].remove(state)
+                return simgr
+
+        return simgr
 
     def explore_binary(self, p, state, intermediate=False):
         simgr = p.factory.simgr(state, save_unconstrained=True)
@@ -57,8 +90,18 @@ class FmtDetector:
                 if intermediate is True:
                     return exploit_state
                 simgr = p.factory.simgr(exploit_state, save_unconstrained=True)
-                simgr.explore()
-                end_state = simgr.pruned[0]
+                p.unhook_symbol("printf")
+                exploit_state.globals.pop("type")
+
+                p.hook_symbol("gets", GetsHook(), replace=True)
+                p.hook_symbol("printf", PrintfDummy(), replace=True)
+
+                simgr.explore(
+                    find=lambda s: "type" in s.globals, step_func=self.bof_filter,
+                    avoid=lambda s: s.globals["exit"] is True
+                )
+                print(simgr.stashes)
+                end_state = simgr.found[0]
                 vuln_details["type"] = end_state.globals["type"]
                 vuln_details["input"] = self.get_stdin_input(end_state)
                 vuln_details["position"] = end_state.globals["position"]
@@ -70,7 +113,7 @@ class FmtDetector:
 
         return vuln_details, end_state
 
-    def detect_format_string(self, p=None, intermediate=False):
+    def both_detect(self, p=None, intermediate=False):
         p = angr.Project(self.binary.bin_path, load_options={"auto_load_libs": False}) if p is None else p
         # Hook rands
         p.hook_symbol("rand", RandHook(), replace=True)
