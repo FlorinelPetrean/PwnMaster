@@ -33,6 +33,7 @@ def get_stdin_input(state):
 def detect_leak(binary: Binary):
     context.binary = binary.elf
     p = angr.Project(binary.bin_path, load_options={"auto_load_libs": False})
+    # p.entry = 0x400000
     # Hook rands
     p.hook_symbol("rand", RandHook(), replace=True)
     p.hook_symbol("srand", RandHook(), replace=True)
@@ -40,7 +41,7 @@ def detect_leak(binary: Binary):
     p.hook_symbol("exit", ExitHook(), replace=True)
 
     # Stdio based ones
-    p.hook_symbol("printf", PrintfLeak(0), replace=True)
+    p.hook_symbol("printf", PrintfLeak(0))
     p.hook_symbol("fprintf", PrintfLeak(1))
     p.hook_symbol("dprintf", PrintfLeak(1))
     p.hook_symbol("sprintf", PrintfLeak(1))
@@ -53,16 +54,12 @@ def detect_leak(binary: Binary):
     p.hook_symbol("vsprintf", PrintfLeak(1))
     p.hook_symbol("vsnprintf", PrintfLeak(2))
 
-    p.hook_symbol("puts", PutsLeak)
-
-    # symbolic_input = claripy.BVS("input", 300 * 8)
-    input_type = binary.detect_input_type()
+    p.hook_symbol("puts", PutsLeak())
 
     state = p.factory.entry_state()
 
     state.libc.buf_symbolic_bytes = 0x100
     state.libc.max_gets_size = 0x100
-    state.globals["input_type"] = input_type
     state.globals["exit"] = False
     simgr = p.factory.simgr(state, save_unconstrained=True)
     vuln_details = {}
@@ -73,17 +70,18 @@ def detect_leak(binary: Binary):
         def explore_binary(simgr: angr.sim_manager):
             simgr.explore(
                 find=lambda s: "type" in s.globals,
-                avoid=lambda s: s.globals["exit"] is True
+                # avoid=lambda s: s.globals["exit"] is True
             )
 
         explore_binary(simgr)
 
         if "found" in simgr.stashes and len(simgr.found):
             exploit_state: angr.SimState = simgr.found[0]
-            simgr = p.factory.simgr(exploit_state, save_unconstrained=True)
-            simgr.explore()
-            print(simgr.stashes)
-            end_state = simgr.pruned[0]
+            # simgr = p.factory.simgr(exploit_state, save_unconstrained=True)
+            # simgr.explore()
+            # print(simgr.stashes)
+            # end_state = simgr.pruned[0]
+            end_state = exploit_state
             vuln_details["type"] = end_state.globals["type"]
             vuln_details["input"] = get_stdin_input(end_state)
             vuln_details["leak"] = end_state.globals["leak"]

@@ -10,7 +10,6 @@ from func_model.scanf import *
 from func_model.gets import *
 from func_model.printf_dummy import *
 
-
 # from func_model.print_format import *
 
 log = logging.getLogger(__name__)
@@ -18,100 +17,106 @@ log = logging.getLogger(__name__)
 
 # logging.getLogger("angr").setLevel("CRITICAL")
 
+class BofDetector:
+    def __init__(self, binary):
+        self.binary = binary
+        context.binary = binary.elf
+        self.pc_value = b"X" * context.bytes
 
-def bof_filter(simgr: angr.sim_manager):
-    for state in simgr.unconstrained:
-        bits = state.arch.bits
-        addr_size = bits // 8
-        pc_value = b"X" * addr_size
-        # Check satisfiability
-        if state.solver.satisfiable(extra_constraints=[state.regs.pc == pc_value]):
-            log.info("Found vulnerable state.")
-            state.add_constraints(state.regs.pc == pc_value)
-
-            sp = state.callstack.current_stack_pointer
-            buf_mem = state.memory.load(sp - addr_size, 300 * 8)
-            control_after_ret = 0
-
-            for index, c in enumerate(buf_mem.chop(8)):
-                constraint = claripy.And(c == b"P", c == b"P")
+    def get_stdin_input(self, state):
+        vars = list(state.solver.get_variables('file', 'stdin'))
+        crash_input = []
+        for _, var in vars:
+            bytestr = b""
+            for i, c in enumerate(var.chop(8)):
+                constraint = claripy.And(c == 0x42, c == 0x42)
                 if state.solver.satisfiable([constraint]):
                     state.add_constraints(constraint)
-                    control_after_ret += 1
-                else:
-                    break
+                bytestr += state.solver.eval(c).to_bytes(1, context.endian)
+            print(bytestr)
+            if self.pc_value in bytestr:
+                offset = bytestr.index(self.pc_value)
+                controlled_bytes = bytestr[0:offset].count(b"B")
+                state.globals["control_before_ret"] = controlled_bytes
+            crash_input.append(bytestr)
 
-            vars = list(state.solver.get_variables('file', 'stdin'))
-            crash_input = []
-            for _, var in vars:
-                bytestr = b""
-                for i, c in enumerate(var.chop(8)):
-                    constraint = claripy.And(c == 0x42, c == 0x42)
+        return crash_input
+
+    def bof_filter(self, simgr: angr.sim_manager):
+        for state in simgr.unconstrained:
+            bits = state.arch.bits
+            addr_size = bits // 8
+            # Check satisfiability
+            if state.solver.satisfiable(extra_constraints=[state.regs.pc == self.pc_value]):
+                log.info("Found vulnerable state.")
+                state.add_constraints(state.regs.pc == self.pc_value)
+
+                sp = state.callstack.current_stack_pointer
+                buf_mem = state.memory.load(sp - addr_size, 300 * 8)
+                control_after_ret = 0
+
+                for index, c in enumerate(buf_mem.chop(8)):
+                    constraint = claripy.And(c == b"P", c == b"P")
                     if state.solver.satisfiable([constraint]):
                         state.add_constraints(constraint)
-                    bytestr += state.solver.eval(c).to_bytes(1, context.endian)
-                print(bytestr)
-                if pc_value in bytestr:
-                    offset = bytestr.index(pc_value)
-                    controlled_bytes = bytestr[0:offset].count(b"B")
-                    state.globals["control_before_ret"] = controlled_bytes
-                crash_input.append(bytestr)
+                        control_after_ret += 1
+                    else:
+                        break
 
-            state.globals["type"] = "bof"
-            if "control_after_ret" not in state.globals:
-                state.globals["control_after_ret"] = control_after_ret
-            state.globals["input"] = crash_input
-            simgr.stashes["found"].append(state)
-            simgr.stashes["unconstrained"].remove(state)
-            return simgr
+                state.globals["type"] = "bof"
+                if "control_after_ret" not in state.globals:
+                    state.globals["control_after_ret"] = control_after_ret
+                state.globals["input"] = self.get_stdin_input(state)
+                simgr.stashes["found"].append(state)
+                simgr.stashes["unconstrained"].remove(state)
+                return simgr
 
-    return simgr
+        return simgr
 
+    def explore_binary(self, p, state):
+        simgr = p.factory.simgr(state, save_unconstrained=True)
+        vuln_details = {}
+        # Lame way to do a timeout
+        try:
 
-def detect_overflow(binary: Binary):
-    context.binary = binary.elf
-    p = angr.Project(binary.bin_path, load_options={"auto_load_libs": False})
-    # Hook rands
-    p.hook_symbol("rand", RandHook())
-    p.hook_symbol("srand", RandHook())
-    # Hook exit
-    p.hook_symbol("exit", ExitHook(), replace=True)
+            @timeout_decorator.timeout(120)
+            def explore_binary(simgr: angr.sim_manager):
+                simgr.explore(
+                    find=lambda s: "type" in s.globals, step_func=self.bof_filter,
+                    avoid=lambda s: s.globals["exit"] is True
+                )
 
-    p.hook_symbol("gets", GetsHook(), replace=True)
-    p.hook_symbol("printf", PrintfDummy(), replace=True)
+            explore_binary(simgr)
 
-    state = p.factory.entry_state()
+            if "found" in simgr.stashes and len(simgr.found):
+                end_state = simgr.found[0]
+                vuln_details["type"] = end_state.globals["type"]
+                vuln_details["input"] = end_state.globals["input"]
+                vuln_details["control_before_ret"] = end_state.globals["control_before_ret"]
+                vuln_details["control_after_ret"] = end_state.globals["control_after_ret"]
+                vuln_details["output"] = end_state.posix.dumps(1)
 
-    state.libc.buf_symbolic_bytes = 0x100
-    state.libc.max_gets_size = 0x100
-    # state.globals["input_type"] = input_type
-    state.globals["exit"] = False
-    simgr = p.factory.simgr(state, save_unconstrained=True)
-    vuln_details = {}
-    # Lame way to do a timeout
-    try:
+        except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
+            log.info("[~] Keyboard Interrupt")
 
-        @timeout_decorator.timeout(120)
-        def explore_binary(simgr: angr.sim_manager):
-            simgr.explore(
-                find=lambda s: "type" in s.globals, step_func=bof_filter,
-                avoid=lambda s: s.globals["exit"] is True
-            )
+        return vuln_details
 
-        explore_binary(simgr)
+    def detect_overflow(self):
+        p = angr.Project(self.binary.bin_path, load_options={"auto_load_libs": False})
+        # Hook rands
+        p.hook_symbol("rand", RandHook())
+        p.hook_symbol("srand", RandHook())
+        # Hook exit
+        p.hook_symbol("exit", ExitHook(), replace=True)
 
-        if "found" in simgr.stashes and len(simgr.found):
-            end_state = simgr.found[0]
-            # print("input", end_state.posix.dumps(0))
-            # print("output", end_state.posix.dumps(1))
+        p.hook_symbol("gets", GetsHook(), replace=True)
+        p.hook_symbol("printf", PrintfDummy(), replace=True)
 
-            vuln_details["type"] = end_state.globals["type"]
-            vuln_details["input"] = end_state.globals["input"]
-            vuln_details["control_before_ret"] = end_state.globals["control_before_ret"]
-            vuln_details["control_after_ret"] = end_state.globals["control_after_ret"]
-            vuln_details["output"] = end_state.posix.dumps(1)
+        state = p.factory.entry_state()
 
-    except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
-        log.info("[~] Keyboard Interrupt")
+        state.libc.buf_symbolic_bytes = 0x100
+        state.libc.max_gets_size = 0x100
+        # state.globals["input_type"] = input_type
+        state.globals["exit"] = False
 
-    return vuln_details
+        return self.explore_binary(p, state)

@@ -10,6 +10,7 @@ from binary.sc_exploiter import ShellcodeExploiter
 from binary.fmt_exploiter import FmtExploiter
 from binary.bof_detector import *
 from binary.fmt_detector import *
+from binary.leak_detector import *
 from pwn import *
 import argparse
 import sys
@@ -18,19 +19,21 @@ if __name__ == '__main__':
     binary_path = sys.argv[1]
     binary = Binary(binary_path)
     vuln_details = detect_overflow(binary)
-    if not binary.protection['nx']:
-        exploiter = ShellcodeExploiter(binary, vuln_details)
-        exploiter.exploit()
-    else:
-        exploiter = RopExploiter(binary, vuln_details)
-        exploiter.exploit()
+    print(vuln_details)
+    # if not binary.protection['nx']:
+    #     exploiter = ShellcodeExploiter(binary, vuln_details)
+    #     exploiter.exploit()
+    # else:
+    #     exploiter = RopExploiter(binary, vuln_details)
+    #     exploiter.two_stage_exploit()
         # exploiter.ret2dlresolve()
-    # vuln_details = detect_format_string(binary)
-    # print(vuln_details)
+    vuln_details = detect_format_string(binary)
+    print(vuln_details)
     # exploiter = FmtExploiter(binary, vuln_details)
     # exploiter.apply_loop_fmt()
     # exploiter.arbitrary_read(binary.elf.got['fgets'])
     # exploiter.find_base_address()
     # exploiter.find_canary_offset()
     # exploiter.find_pie_offset()
+
 

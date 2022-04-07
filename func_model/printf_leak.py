@@ -78,6 +78,7 @@ class PrintfLeak(angr.procedures.libc.printf.printf):
             for name, addr in elf.got.items():
                 if var_addr == addr:
                     log.info("[+] Printf leaked GOT {}".format(name))
+                    state.globals["type"] = "leak"
                     state.globals["leaked_type"] = "function"
                     state.globals["leaked_func"] = name
                     state.globals["leaked_addr"] = var_addr
@@ -110,27 +111,11 @@ class PrintfLeak(angr.procedures.libc.printf.printf):
                 user_input = state.globals["user_input"]
                 input_bytes = state.solver.eval(user_input, cast_to=bytes)
 
-                input_bytes = get_trimmed_input(user_input, state)
+                # input_bytes = get_trimmed_input(user_input, state)
 
                 state.globals["leak_input"] = input_bytes
                 state.globals["leak_output"] = state.posix.dumps(1)
                 return True
-
-            # # Check tracked malloc addrs
-            # if "stored_malloc" in self.state.globals.keys():
-            #     for addr in self.state.globals["stored_malloc"]:
-            #         if addr == var_addr:
-            #             log.info("[+] Leaked a heap addr : {}".format(hex(var_addr)))
-            #             state.globals["leaked_type"] = "heap_address"
-            #             state.globals["leaked_addr"] = var_addr
-            #
-            #             # Input to leak
-            #             user_input = state.globals["user_input"]
-            #             input_bytes = state.solver.eval(user_input, cast_to=bytes)
-            #
-            #             state.globals["leak_input"] = input_bytes
-            #             state.globals["leak_output"] = state.posix.dumps(1)
-            #             return True
 
     def run(self, fmt):
         """
