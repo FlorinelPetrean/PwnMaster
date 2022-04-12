@@ -54,8 +54,14 @@ class BofDetector:
                 buf_mem = state.memory.load(sp - context.bytes, 300 * 8)
                 control_after_ret = 0
 
+                canary_mem = state.memory.load(sp - 3 * context.bytes, context.bytes)
+                for c in canary_mem.chop(8):
+                    constraint = c == b"C"
+                    if state.solver.satisfiable([constraint]):
+                        state.add_constraints(constraint)
+
                 for index, c in enumerate(buf_mem.chop(8)):
-                    constraint = claripy.And(c == b"P", c == b"P")
+                    constraint = c == b"P"
                     if state.solver.satisfiable([constraint]):
                         state.add_constraints(constraint)
                         control_after_ret += 1
@@ -82,14 +88,11 @@ class BofDetector:
             @timeout_decorator.timeout(120)
             def explore_binary(simgr: angr.sim_manager):
                 simgr.explore(
-                    find=lambda s: "type" in s.globals, step_func=self.bof_filter,
+                    find=lambda s: "type" in s.globals and s.globals["type"] == "bof", step_func=self.bof_filter,
                     avoid=lambda s: s.globals["exit"] is True
                 )
 
             explore_binary(simgr)
-            print(simgr.stashes)
-            if "deadended" in simgr.stashes:
-                print(self.get_stdin_input(simgr.deadended[0]))
             if "found" in simgr.stashes and len(simgr.found):
                 end_state = simgr.found[0]
                 vuln_details["type"] = end_state.globals["type"]

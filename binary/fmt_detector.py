@@ -42,11 +42,9 @@ class FmtDetector:
         end_state = None
         # Lame way to do a timeout
         try:
-
-            @timeout_decorator.timeout(120)
             def explore_binary(simgr: angr.sim_manager):
                 simgr.explore(
-                    find=lambda s: "type" in s.globals,
+                    find=lambda s: "type" in s.globals and s.globals["type"] == "fmt",
                     avoid=lambda s: s.globals["exit"] is True
                 )
 
@@ -55,10 +53,16 @@ class FmtDetector:
             if "found" in simgr.stashes and len(simgr.found):
                 exploit_state: angr.SimState = simgr.found[0]
                 if intermediate is True:
-                    return exploit_state
+                    vuln_details["type"] = exploit_state.globals["type"]
+                    vuln_details["input"] = self.get_stdin_input(exploit_state)
+                    vuln_details["position"] = exploit_state.globals["position"]
+                    vuln_details["length"] = exploit_state.globals["length"]
+                    vuln_details["output"] = exploit_state.posix.dumps(1)
+                    return vuln_details, exploit_state
                 simgr = p.factory.simgr(exploit_state, save_unconstrained=True)
                 simgr.explore()
-                end_state = simgr.pruned[0]
+                print(simgr.stashes)
+                end_state = simgr.unconstrained[0]
                 vuln_details["type"] = end_state.globals["type"]
                 vuln_details["input"] = self.get_stdin_input(end_state)
                 vuln_details["position"] = end_state.globals["position"]
@@ -80,17 +84,17 @@ class FmtDetector:
 
         # Stdio based ones
         p.hook_symbol("printf", PrintFormat(0), replace=True)
-        # p.hook_symbol("fprintf", PrintFormat(1))
-        # p.hook_symbol("dprintf", PrintFormat(1))
-        # p.hook_symbol("sprintf", PrintFormat(1))
-        # p.hook_symbol("snprintf", PrintFormat(2))
-        #
-        # # Stdarg base ones
-        # p.hook_symbol("vprintf", PrintFormat(0))
-        # p.hook_symbol("vfprintf", PrintFormat(1))
-        # p.hook_symbol("vdprintf", PrintFormat(1))
-        # p.hook_symbol("vsprintf", PrintFormat(1))
-        # p.hook_symbol("vsnprintf", PrintFormat(2))
+        p.hook_symbol("fprintf", PrintFormat(1))
+        p.hook_symbol("dprintf", PrintFormat(1))
+        p.hook_symbol("sprintf", PrintFormat(1))
+        p.hook_symbol("snprintf", PrintFormat(2))
+
+        # Stdarg base ones
+        p.hook_symbol("vprintf", PrintFormat(0))
+        p.hook_symbol("vfprintf", PrintFormat(1))
+        p.hook_symbol("vdprintf", PrintFormat(1))
+        p.hook_symbol("vsprintf", PrintFormat(1))
+        p.hook_symbol("vsnprintf", PrintFormat(2))
 
         state = p.factory.entry_state()
 
