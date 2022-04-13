@@ -38,7 +38,7 @@ class FmtDetector:
 
     def get_vuln_details(self, vuln_details, state):
         vuln_details["type"] = state.globals["type"]
-        vuln_details["input"] = self.get_stdin_input(state)
+        # vuln_details["input"] = self.get_stdin_input(state)
         vuln_details["position"] = state.globals["position"]
         vuln_details["length"] = state.globals["length"]
         vuln_details["output"] = state.posix.dumps(1)

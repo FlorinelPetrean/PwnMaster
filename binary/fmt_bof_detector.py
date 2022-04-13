@@ -17,4 +17,6 @@ class FmtBofDetector:
 
         bof_detector = BofDetector(self.binary)
         bof_details, _ = bof_detector.detect_overflow(p, state)
-        print(bof_details)
+        bof_details["type"] = "fmt&bof"
+        return bof_details
+
