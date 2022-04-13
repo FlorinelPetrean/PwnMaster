@@ -36,6 +36,13 @@ class FmtDetector:
             fmt_input.append(bytestr)
         return fmt_input
 
+    def get_vuln_details(self, vuln_details, state):
+        vuln_details["type"] = state.globals["type"]
+        vuln_details["input"] = self.get_stdin_input(state)
+        vuln_details["position"] = state.globals["position"]
+        vuln_details["length"] = state.globals["length"]
+        vuln_details["output"] = state.posix.dumps(1)
+
     def explore_binary(self, p, state, intermediate=False):
         simgr = p.factory.simgr(state, save_unconstrained=True)
         vuln_details = {}
@@ -46,7 +53,7 @@ class FmtDetector:
             @timeout_decorator.timeout(120)
             def explore_binary(simgr: angr.sim_manager):
                 simgr.explore(
-                    find=lambda s: "type" in s.globals,
+                    find=lambda s: "type" in s.globals and s.globals["type"] == "fmt",
                     avoid=lambda s: s.globals["exit"] is True
                 )
 
@@ -55,15 +62,12 @@ class FmtDetector:
             if "found" in simgr.stashes and len(simgr.found):
                 exploit_state: angr.SimState = simgr.found[0]
                 if intermediate is True:
-                    return exploit_state
+                    self.get_vuln_details(vuln_details, exploit_state)
+                    return vuln_details, exploit_state
                 simgr = p.factory.simgr(exploit_state, save_unconstrained=True)
                 simgr.explore()
                 end_state = simgr.pruned[0]
-                vuln_details["type"] = end_state.globals["type"]
-                vuln_details["input"] = self.get_stdin_input(end_state)
-                vuln_details["position"] = end_state.globals["position"]
-                vuln_details["length"] = end_state.globals["length"]
-                vuln_details["output"] = end_state.posix.dumps(1)
+                self.get_vuln_details(vuln_details, end_state)
 
         except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
             log.info("[~] Keyboard Interrupt")

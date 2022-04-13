@@ -14,11 +14,8 @@ class FmtBofDetector:
     def explore_binary(self):
         p = angr.Project(self.binary.bin_path, load_options={"auto_load_libs": False})
         fmt_detector = FmtDetector(self.binary)
-        state = fmt_detector.detect_format_string(p, intermediate=True)
-        p.unhook_symbol("printf")
+        fmt_details, state = fmt_detector.detect_format_string(p, intermediate=True)
 
-        state.globals.pop("type")
-        print(fmt_detector.get_stdin_input(state))
         bof_detector = BofDetector(self.binary)
         bof_details, _ = bof_detector.detect_overflow(p, state)
         print(bof_details)
