@@ -17,10 +17,8 @@ if __name__ == '__main__':
     binary_path = sys.argv[1]
     binary = Binary(binary_path)
     fmt_bof_detector = FmtBofDetector(binary)
-    fmt_bof_detector.explore_binary()
-    # both_detector = BothDetector(binary)
-    # vuln_details, _ = both_detector.both_detect()
-    # print(vuln_details)
+    fmt_bof_detector.detect_vuln()
+
 
 
 

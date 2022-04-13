@@ -3,7 +3,6 @@ from binary.fmt_detector import FmtDetector
 from binary.bof_detector import BofDetector
 import angr
 
-from func_model.print_format import PrintFormat
 
 
 class FmtBofDetector:
@@ -11,7 +10,7 @@ class FmtBofDetector:
         self.binary = binary
         context.binary = binary.elf
 
-    def explore_binary(self):
+    def detect_vuln(self):
         p = angr.Project(self.binary.bin_path, load_options={"auto_load_libs": False})
         fmt_detector = FmtDetector(self.binary)
         fmt_details, state = fmt_detector.detect_format_string(p, intermediate=True)
