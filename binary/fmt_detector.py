@@ -38,7 +38,6 @@ class FmtDetector:
 
     def get_vuln_details(self, vuln_details, state):
         vuln_details["type"] = state.globals["type"]
-        # vuln_details["input"] = self.get_stdin_input(state)
         vuln_details["position"] = state.globals["position"]
         vuln_details["length"] = state.globals["length"]
         vuln_details["output"] = state.posix.dumps(1)
@@ -66,12 +65,19 @@ class FmtDetector:
                     return vuln_details, exploit_state
                 simgr = p.factory.simgr(exploit_state, save_unconstrained=True)
                 simgr.explore()
-                end_state = simgr.pruned[0]
+                print(simgr.stashes)
+                if "unconstrained" in simgr.stashes and len(simgr.unconstrained):
+                    end_state = simgr.unconstrained[0]
+                elif "pruned" in simgr.stashes and len(simgr.pruned):
+                    end_state = simgr.pruned[0]
+                else:
+                    end_state = exploit_state
                 self.get_vuln_details(vuln_details, end_state)
+
 
         except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
             log.info("[~] Keyboard Interrupt")
-
+        vuln_details["input"] = self.get_stdin_input(end_state)
         return vuln_details, end_state
 
     def detect_format_string(self, p=None, intermediate=False):

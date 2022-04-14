@@ -13,6 +13,7 @@ void vuln() {
     char buf[100];
     char magic1[10];
     char magic2[20];
+    char magic3[20];
     fgets(magic1, 10, stdin);
 
     fgets(magic2, 20, stdin);
