@@ -20,13 +20,14 @@ if __name__ == '__main__':
     binary_path = sys.argv[1]
     binary = Binary(binary_path)
 
-    # pwn_master = PwnMaster(binary)
-    # pwn_master.choose_strategy()
+    pwn_master = PwnMaster(binary)
+    pwn_master.choose_strategy()
 
-    fmt_detector = FmtDetector(binary)
-    details, _ = fmt_detector.detect_format_string()
-    fmt_exploiter = FmtExploiter(binary, details)
-    fmt_exploiter.find_pie_offset()
+    # fmt_detector = FmtDetector(binary)
+    # details, _ = fmt_detector.detect_format_string()
+    # fmt_exploiter = FmtExploiter(binary, details)
+    # fmt_exploiter.find_pie_offset()
+
 
 
 

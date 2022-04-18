@@ -44,7 +44,6 @@ class BofDetector:
 
     def bof_filter(self, simgr: angr.sim_manager):
         for state in simgr.unconstrained:
-            bits = state.arch.bits
             # Check satisfiability
             if state.solver.satisfiable(extra_constraints=[state.regs.pc == self.pc_value]):
                 log.info("Found vulnerable state.")
@@ -55,7 +54,7 @@ class BofDetector:
                 control_after_ret = 0
 
                 for index, c in enumerate(buf_mem.chop(8)):
-                    constraint = claripy.And(c == b"P", c == b"P")
+                    constraint = c == b"P"
                     if state.solver.satisfiable([constraint]):
                         state.add_constraints(constraint)
                         control_after_ret += 1
@@ -79,7 +78,7 @@ class BofDetector:
         # Lame way to do a timeout
         try:
 
-            @timeout_decorator.timeout(120)
+            # @timeout_decorator.timeout(120)
             def explore_binary(simgr: angr.sim_manager):
                 simgr.explore(
                     find=lambda s: "type" in s.globals and s.globals["type"] == "bof", step_func=self.bof_filter,
@@ -88,8 +87,7 @@ class BofDetector:
 
             explore_binary(simgr)
             print(simgr.stashes)
-            if "deadended" in simgr.stashes:
-                print(self.get_stdin_input(simgr.deadended[0]))
+
             if "found" in simgr.stashes and len(simgr.found):
                 end_state = simgr.found[0]
                 vuln_details["type"] = end_state.globals["type"]
@@ -97,6 +95,8 @@ class BofDetector:
                 vuln_details["control_before_ret"] = end_state.globals["control_before_ret"]
                 vuln_details["control_after_ret"] = end_state.globals["control_after_ret"]
                 vuln_details["output"] = end_state.posix.dumps(1)
+            if "deadended" in simgr.stashes and len(simgr.deadended):
+                print(self.get_stdin_input(simgr.deadended[0]))
 
         except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
             log.info("[~] Keyboard Interrupt")
@@ -117,7 +117,7 @@ class BofDetector:
         state = p.factory.entry_state() if state is None else state
 
         state.libc.buf_symbolic_bytes = 0x100
-        state.libc.max_gets_size = 0x100
+        state.libc.max_gets_size = 0x200
         # state.globals["input_type"] = input_type
         state.globals["exit"] = False
 

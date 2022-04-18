@@ -64,14 +64,11 @@ class FmtDetector:
                     self.get_vuln_details(vuln_details, exploit_state)
                     return vuln_details, exploit_state
                 simgr = p.factory.simgr(exploit_state, save_unconstrained=True)
-                simgr.explore()
+                simgr.run(drop=simgr.stashes["unconstrained"])
                 print(simgr.stashes)
-                if "unconstrained" in simgr.stashes and len(simgr.unconstrained):
-                    end_state = simgr.unconstrained[0]
-                elif "pruned" in simgr.stashes and len(simgr.pruned):
-                    end_state = simgr.pruned[0]
-                else:
-                    end_state = exploit_state
+                if "deadended" in simgr.stashes and len(simgr.deadended):
+                    end_state = simgr.deadended[0]
+
                 self.get_vuln_details(vuln_details, end_state)
 
 

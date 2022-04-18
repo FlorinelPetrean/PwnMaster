@@ -73,7 +73,6 @@ class PrintfLeak(angr.procedures.libc.printf.printf):
                 s_val = s_val.rjust(fmt_spec.length_spec, fmt_spec.pad_chr)
 
             var_addr = c_val
-
             # Are any pointers GOT addresses?
             for name, addr in elf.got.items():
                 if var_addr == addr:

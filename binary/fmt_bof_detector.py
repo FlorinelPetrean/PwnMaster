@@ -4,7 +4,6 @@ from binary.bof_detector import BofDetector
 import angr
 
 
-
 class FmtBofDetector:
     def __init__(self, binary):
         self.binary = binary
@@ -19,4 +18,3 @@ class FmtBofDetector:
         bof_details, _ = bof_detector.detect_overflow(p, state)
         bof_details["type"] = "fmt&bof"
         return bof_details
-
