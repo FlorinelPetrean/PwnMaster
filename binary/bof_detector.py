@@ -52,7 +52,6 @@ class BofDetector:
                 sp = state.callstack.current_stack_pointer
                 buf_mem = state.memory.load(sp - context.bytes, 300 * 8)
                 control_after_ret = 0
-
                 for index, c in enumerate(buf_mem.chop(8)):
                     constraint = c == b"P"
                     if state.solver.satisfiable([constraint]):
@@ -60,6 +59,12 @@ class BofDetector:
                         control_after_ret += 1
                     else:
                         break
+
+                canary_mem = state.memory.load(sp - 3 * context.bytes, 8)
+                for index, c in enumerate(canary_mem.chop(8)):
+                    constraint = c == b"C"
+                    if state.solver.satisfiable([constraint]):
+                        state.add_constraints(constraint)
 
                 state.globals["type"] = "bof"
                 if "control_after_ret" not in state.globals:
