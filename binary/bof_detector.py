@@ -60,12 +60,6 @@ class BofDetector:
                     else:
                         break
 
-                canary_mem = state.memory.load(sp - 3 * context.bytes, 8)
-                for index, c in enumerate(canary_mem.chop(8)):
-                    constraint = c == b"C"
-                    if state.solver.satisfiable([constraint]):
-                        state.add_constraints(constraint)
-
                 state.globals["type"] = "bof"
                 if "control_after_ret" not in state.globals:
                     state.globals["control_after_ret"] = control_after_ret
