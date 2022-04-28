@@ -19,7 +19,7 @@ void vuln() {
     fgets(magic2, sizeof(magic2), stdin);
     printf(magic2);
 
-    printf("can you find this?\n");
+//    printf("can you find this?\n");
     printf("Vuln Function is at: %lx\n", vuln);
     if (strncmp(magic1, "magic1", 6) == 0) {
         gets(buf);

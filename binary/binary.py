@@ -13,7 +13,8 @@ class Binary:
         self.bin_path = binary_path
         context.binary = self.bin_path
         self.elf = ELF(self.bin_path)
-        self.protection = self.init_properties()
+        self.protection = self.init_protection()
+        self.props = self.init_properties()
         self.input_type = self.detect_input_type()
         self.libc = self.init_libc()
         self.arch = self.elf.arch
@@ -26,14 +27,22 @@ class Binary:
             pass
         return libc
 
-    def init_properties(self):
-        properties = {
+    def init_protection(self):
+        protections = {
             "aslr": self.elf.aslr,
             "canary": self.elf.canary,
             "nx": self.elf.nx,
             "pie": self.elf.pie,
             "relro": self.elf.relro}
 
+        return protections
+
+    def init_properties(self):
+        properties = {
+            "adjusted_binary_base": not self.elf.pie,
+            "adjusted_libc_base": not self.elf.aslr,
+            "use_leak_addr_chain": "puts" in self.elf.plt
+        }
         return properties
 
     def detect_input_type(self):
@@ -48,6 +57,7 @@ class Binary:
 
     def adjust_binary_base(self, base_addr):
         self.elf.address = base_addr
+        self.props["adjusted_binary_base"] = True
         log.success(f'binary base: {hex(self.elf.address)}')
 
     def adjust_libc_base(self, leak_addr, function):
@@ -57,7 +67,14 @@ class Binary:
             libc_path = libcdb.download_by_name(libc_name)
             self.libc = ELF(libc_path)
         self.libc.address = leak_addr - self.libc.sym[function]
+        self.props["adjusted_libc_base"] = True
         log.success(f'libc base: {hex(self.libc.address)}')
+
+    def set_libc_base(self, libc_base):
+        if self.libc is not None:
+            self.libc.address = libc_base
+            self.props["adjusted_libc_base"] = True
+            log.success(f'libc base: {hex(self.libc.address)}')
 
     def find_function(self, function, search_libc=False):
         elf = self.elf if search_libc is False else self.libc
