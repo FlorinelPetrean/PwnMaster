@@ -40,7 +40,7 @@ class Binary:
     def init_properties(self):
         properties = {
             "adjusted_binary_base": not self.elf.pie,
-            "adjusted_libc_base": not self.elf.aslr,
+            "adjusted_libc_base": False,
             "use_leak_addr_chain": "puts" in self.elf.plt
         }
         return properties

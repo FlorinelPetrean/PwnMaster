@@ -74,7 +74,8 @@ class FmtDetector:
 
         except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
             log.info("[~] Keyboard Interrupt")
-        vuln_details["input"] = self.get_stdin_input(end_state)
+        if end_state is not None:
+            vuln_details["input"] = self.get_stdin_input(end_state)
         return vuln_details, end_state
 
     def detect_format_string(self, p=None, intermediate=False):
@@ -87,17 +88,17 @@ class FmtDetector:
 
         # Stdio based ones
         p.hook_symbol("printf", PrintFormat(0), replace=True)
-        # p.hook_symbol("fprintf", PrintFormat(1))
-        # p.hook_symbol("dprintf", PrintFormat(1))
-        # p.hook_symbol("sprintf", PrintFormat(1))
-        # p.hook_symbol("snprintf", PrintFormat(2))
-        #
+        p.hook_symbol("fprintf", PrintFormat(1))
+        p.hook_symbol("dprintf", PrintFormat(1))
+        p.hook_symbol("sprintf", PrintFormat(1))
+        p.hook_symbol("snprintf", PrintFormat(2))
+
         # # Stdarg base ones
-        # p.hook_symbol("vprintf", PrintFormat(0))
-        # p.hook_symbol("vfprintf", PrintFormat(1))
-        # p.hook_symbol("vdprintf", PrintFormat(1))
-        # p.hook_symbol("vsprintf", PrintFormat(1))
-        # p.hook_symbol("vsnprintf", PrintFormat(2))
+        p.hook_symbol("vprintf", PrintFormat(0))
+        p.hook_symbol("vfprintf", PrintFormat(1))
+        p.hook_symbol("vdprintf", PrintFormat(1))
+        p.hook_symbol("vsprintf", PrintFormat(1))
+        p.hook_symbol("vsnprintf", PrintFormat(2))
 
         state = p.factory.entry_state()
 

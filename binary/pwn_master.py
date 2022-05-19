@@ -13,21 +13,24 @@ class PwnMaster:
         self.detect_vulns()
 
     def detect_vulns(self):
-        # fmt_detector = FmtDetector(self.binary)
-        # fmt_vuln, _ = fmt_detector.detect_format_string()
-        # if "type" in fmt_vuln:
-        #     self.vulns["fmt"] = fmt_vuln
-        #
-        # bof_detector = BofDetector(self.binary)
-        # bof_vuln, _ = bof_detector.detect_overflow()
-        # if "type" in bof_vuln:
-        #     self.vulns["bof"] = bof_vuln
-        #
-        # if "type" in fmt_vuln and "type" in bof_vuln:
-        fmt_bof_detector = FmtBofDetector(self.binary)
-        fmt_bof_vuln = fmt_bof_detector.detect_vuln()
-        if "type" in fmt_bof_vuln:
-            self.vulns["fmt&bof"] = fmt_bof_vuln
+        pie = self.binary.protection["pie"]
+        canary = self.binary.protection["canary"]
+        if not (pie or canary):
+            fmt_detector = FmtDetector(self.binary)
+            fmt_vuln, _ = fmt_detector.detect_format_string()
+            if "type" in fmt_vuln:
+                self.vulns["fmt"] = fmt_vuln
+
+            bof_detector = BofDetector(self.binary)
+            bof_vuln, _ = bof_detector.detect_overflow()
+            if "type" in bof_vuln:
+                self.vulns["bof"] = bof_vuln
+        else:
+            # if "type" in fmt_vuln and "type" in bof_vuln:
+            fmt_bof_detector = FmtBofDetector(self.binary)
+            fmt_bof_vuln = fmt_bof_detector.detect_vuln()
+            if "type" in fmt_bof_vuln:
+                self.vulns["fmt&bof"] = fmt_bof_vuln
 
     def choose_strategy(self):
         protection = self.binary.protection

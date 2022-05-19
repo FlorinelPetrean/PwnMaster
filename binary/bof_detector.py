@@ -80,8 +80,8 @@ class BofDetector:
             # @timeout_decorator.timeout(120)
             def explore_binary(simgr: angr.sim_manager):
                 simgr.explore(
-                    find=lambda s: "type" in s.globals and s.globals["type"] == "bof", step_func=self.bof_filter,
-                    avoid=lambda s: s.globals["exit"] is True
+                    find=lambda s: "type" in s.globals and s.globals["type"] == "bof", step_func=self.bof_filter
+                    # avoid=lambda s: s.globals["exit"] is True
                 )
 
             explore_binary(simgr)
