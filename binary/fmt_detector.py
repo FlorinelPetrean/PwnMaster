@@ -44,6 +44,8 @@ class FmtDetector:
 
     def explore_binary(self, p, state, intermediate=False):
         simgr = p.factory.simgr(state, save_unconstrained=True)
+        simgr.use_technique(angr.exploration_techniques.DFS())
+
         vuln_details = {}
         end_state = None
         # Lame way to do a timeout
@@ -68,9 +70,10 @@ class FmtDetector:
                 print(simgr.stashes)
                 if "deadended" in simgr.stashes and len(simgr.deadended):
                     end_state = simgr.deadended[0]
+                elif "pruned" in simgr.stashes and len(simgr.pruned):
+                    end_state = simgr.pruned[0]
 
                 self.get_vuln_details(vuln_details, end_state)
-
 
         except (KeyboardInterrupt, timeout_decorator.TimeoutError) as e:
             log.info("[~] Keyboard Interrupt")
@@ -78,7 +81,7 @@ class FmtDetector:
             vuln_details["input"] = self.get_stdin_input(end_state)
         return vuln_details, end_state
 
-    def detect_format_string(self, p=None, intermediate=False):
+    def detect_format_string(self, p=None, state=None, intermediate=False):
         p = angr.Project(self.binary.bin_path, load_options={"auto_load_libs": False}) if p is None else p
         # Hook rands
         p.hook_symbol("rand", RandHook(), replace=True)
@@ -100,7 +103,7 @@ class FmtDetector:
         p.hook_symbol("vsprintf", PrintFormat(1))
         p.hook_symbol("vsnprintf", PrintFormat(2))
 
-        state = p.factory.entry_state()
+        state = p.factory.entry_state() if state is None else state
 
         state.libc.buf_symbolic_bytes = 0x100
         state.libc.max_gets_size = 0x100

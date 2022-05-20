@@ -9,7 +9,7 @@ context.arch = 'amd64'
 
 class Binary:
     def __init__(self,
-                 binary_path):
+                 binary_path, ip=None, port=None):
         self.bin_path = binary_path
         context.binary = self.bin_path
         self.elf = ELF(self.bin_path)
@@ -18,6 +18,10 @@ class Binary:
         self.input_type = self.detect_input_type()
         self.libc = self.init_libc()
         self.arch = self.elf.arch
+        self.remote = None if ip is None or port is None else [ip, port]
+
+    def create_process(self):
+        return self.elf.process() if self.remote is None else remote(self.remote[0], self.remote[1])
 
     def init_libc(self):
         libc = None

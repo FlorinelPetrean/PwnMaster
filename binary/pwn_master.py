@@ -4,7 +4,7 @@ from binary.fmt_detector import FmtDetector
 from binary.fmt_exploiter import FmtExploiter
 from binary.rop_exploiter import RopExploiter
 from binary.bof_detector import BofDetector
-
+from binary.fmt_fmt_detector import FmtFmtDetector
 
 class PwnMaster:
     def __init__(self, binary):
@@ -26,11 +26,14 @@ class PwnMaster:
             if "type" in bof_vuln:
                 self.vulns["bof"] = bof_vuln
         else:
-            # if "type" in fmt_vuln and "type" in bof_vuln:
-            fmt_bof_detector = FmtBofDetector(self.binary)
-            fmt_bof_vuln = fmt_bof_detector.detect_vuln()
-            if "type" in fmt_bof_vuln:
-                self.vulns["fmt&bof"] = fmt_bof_vuln
+            fmt_fmt_detector = FmtFmtDetector(self.binary)
+            details = fmt_fmt_detector.detect_vuln()
+            print(details)
+
+            # fmt_bof_detector = FmtBofDetector(self.binary)
+            # fmt_bof_vuln = fmt_bof_detector.detect_vuln()
+            # if "type" in fmt_bof_vuln:
+            #     self.vulns["fmt&bof"] = fmt_bof_vuln
 
     def choose_strategy(self):
         protection = self.binary.protection

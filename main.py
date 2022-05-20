@@ -17,8 +17,18 @@ import argparse
 import sys
 
 if __name__ == '__main__':
+    option = sys.argv[2]
     binary_path = sys.argv[1]
-    binary = Binary(binary_path)
+
+    ip = None
+    port = None
+    if option == "LOCAL":
+        pass
+    elif option == "REMOTE":
+        ip = sys.argv[3]
+        port = int(sys.argv[4])
+
+    binary = Binary(binary_path, ip, port)
 
     pwn_master = PwnMaster(binary)
     pwn_master.choose_strategy()
