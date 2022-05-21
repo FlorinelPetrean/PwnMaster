@@ -5,6 +5,7 @@ from binary.fmt_exploiter import FmtExploiter
 from binary.rop_exploiter import RopExploiter
 from binary.bof_detector import BofDetector
 from binary.fmt_fmt_detector import FmtFmtDetector
+from binary.fmt_fmt_exploiter import FmtFmtExploiter
 
 class PwnMaster:
     def __init__(self, binary):
@@ -27,8 +28,11 @@ class PwnMaster:
                 self.vulns["bof"] = bof_vuln
         else:
             fmt_fmt_detector = FmtFmtDetector(self.binary)
-            details = fmt_fmt_detector.detect_vuln()
+            details, _ = fmt_fmt_detector.detect_vuln()
             print(details)
+
+            fmt_fmt_exploiter = FmtFmtExploiter(self.binary, details)
+            fmt_fmt_exploiter.got_overwrite_attack()
 
             # fmt_bof_detector = FmtBofDetector(self.binary)
             # fmt_bof_vuln = fmt_bof_detector.detect_vuln()

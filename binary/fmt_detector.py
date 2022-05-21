@@ -44,7 +44,7 @@ class FmtDetector:
 
     def explore_binary(self, p, state, intermediate=False):
         simgr = p.factory.simgr(state, save_unconstrained=True)
-        simgr.use_technique(angr.exploration_techniques.DFS())
+        # simgr.use_technique(angr.exploration_techniques.DFS())
 
         vuln_details = {}
         end_state = None
@@ -59,7 +59,6 @@ class FmtDetector:
                 )
 
             explore_binary(simgr)
-
             if "found" in simgr.stashes and len(simgr.found):
                 exploit_state: angr.SimState = simgr.found[0]
                 if intermediate is True:

@@ -22,10 +22,16 @@ void vuln() {
 
             gets(buf);
             printf(buf);
-
         }
     }
-    printf(magic3);
+
+//    if (strncmp(magic3, "A", 1) == 0)
+        printf(magic3);
+
+    char magic4[10];
+    fgets(magic4, 10, stdin);
+//    if (strncmp(magic4, "B", 1) == 0)
+        printf(magic4);
 
 //    exit(1);
     strcat(fmt, buf);
