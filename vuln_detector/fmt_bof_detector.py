@@ -1,6 +1,6 @@
 from pwn import *
-from binary.fmt_detector import FmtDetector
-from binary.bof_detector import BofDetector
+from vuln_detector.fmt_detector import FmtDetector
+from vuln_detector.bof_detector import BofDetector
 import angr
 
 

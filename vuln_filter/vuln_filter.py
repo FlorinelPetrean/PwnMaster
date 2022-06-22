@@ -1,11 +1,10 @@
-from binary.fmt_bof_detector import FmtBofDetector
-from binary.fmt_bof_exploiter import FmtBofExploiter
-from binary.fmt_detector import FmtDetector
-from binary.fmt_exploiter import FmtExploiter
-from binary.rop_exploiter import RopExploiter
-from binary.bof_detector import BofDetector
-from binary.fmt_fmt_detector import FmtFmtDetector
-from binary.fmt_fmt_exploiter import FmtFmtExploiter
+from vuln_detector.fmt_bof_detector import FmtBofDetector
+from exploit_generator.fmt_bof_exploiter import FmtBofExploiter
+from vuln_detector.fmt_detector import FmtDetector
+from exploit_generator.fmt_exploiter import FmtExploiter
+from exploit_generator.rop_exploiter import RopExploiter
+from vuln_detector.bof_detector import BofDetector
+
 
 class PwnMaster:
     def __init__(self, binary):
@@ -27,17 +26,17 @@ class PwnMaster:
             if "type" in bof_vuln:
                 self.vulns["bof"] = bof_vuln
         else:
-            fmt_fmt_detector = FmtFmtDetector(self.binary)
-            details, _ = fmt_fmt_detector.detect_vuln()
-            print(details)
+            # fmt_fmt_detector = FmtFmtDetector(self.binary)
+            # details, _ = fmt_fmt_detector.detect_vuln()
+            # print(details)
+            #
+            # fmt_fmt_exploiter = FmtFmtExploiter(self.binary, details)
+            # fmt_fmt_exploiter.got_overwrite_attack()
 
-            fmt_fmt_exploiter = FmtFmtExploiter(self.binary, details)
-            fmt_fmt_exploiter.got_overwrite_attack()
-
-            # fmt_bof_detector = FmtBofDetector(self.binary)
-            # fmt_bof_vuln = fmt_bof_detector.detect_vuln()
-            # if "type" in fmt_bof_vuln:
-            #     self.vulns["fmt&bof"] = fmt_bof_vuln
+            fmt_bof_detector = FmtBofDetector(self.binary)
+            fmt_bof_vuln = fmt_bof_detector.detect_vuln()
+            if "type" in fmt_bof_vuln:
+                self.vulns["fmt&bof"] = fmt_bof_vuln
 
     def choose_strategy(self):
         protection = self.binary.protection

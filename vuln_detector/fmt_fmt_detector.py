@@ -1,8 +1,7 @@
 from pwn import *
 from timeout_decorator import timeout_decorator
 
-from binary.fmt_detector import FmtDetector
-from binary.bof_detector import BofDetector
+from vuln_detector.fmt_detector import FmtDetector
 import angr
 
 

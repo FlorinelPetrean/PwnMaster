@@ -7,13 +7,7 @@
 
 
 from binary.binary import Binary
-from binary.fmt_bof_detector import FmtBofDetector
-from binary.fmt_bof_exploiter import FmtBofExploiter
-from binary.fmt_detector import FmtDetector
-from binary.fmt_exploiter import FmtExploiter
-from pwn import *
-from binary.pwn_master import PwnMaster
-import argparse
+from vuln_filter.vuln_filter import PwnMaster
 import sys
 
 if __name__ == '__main__':
