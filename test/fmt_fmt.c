@@ -5,19 +5,22 @@
 
 
 void vuln() {
-    puts("Hello world!");
-    char buf[20];
+    char buf[100];
     char magic1[10];
-    char magic2[20];
+    char magic2[64];
+    char magic3[20];
     fgets(magic1, 10, stdin);
 
+    fgets(magic2, sizeof(magic2), stdin);
+    printf(magic2);
 
     if (strncmp(magic1, "magic1", 6) == 0) {
         fgets(buf, 100, stdin);
+        printf(buf);
     }
 
-    fgets(magic2, 10, stdin);
-    if (!strncmp(magic2, "magic2", 6) == 0) {
+    fgets(magic3, 10, stdin);
+    if (!strncmp(magic3, "magic3", 6) == 0) {
         exit(1);
     }
 }

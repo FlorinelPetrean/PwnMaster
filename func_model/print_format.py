@@ -37,24 +37,14 @@ class PrintFormat(angr.procedures.libc.printf.printf):
 
     def is_vulnerable(self):
         max_read_len = 1024
-        """
-        For each value passed to printf
-        Check to see if there are any symbolic bytes
-        Passed in that we control
-        """
         i = self.format_index
-
         format_arg = self.arguments[i]
-
         format_addr = self.state.solver.eval(format_arg)
 
         # Parts of this argument could be symbolic, so we need
         # to check every byte
         old_format_data = self.state.memory.load(format_addr, max_read_len)
         max_len = get_max_strlen(self.state, old_format_data)
-
-        # self._sim_strlen(fmt)
-
         # Reload with just our max len
         format_data = self.state.memory.load(format_addr, max_len)
 
@@ -77,18 +67,10 @@ class PrintFormat(angr.procedures.libc.printf.printf):
         if largest_buffer_length > 0:
             buffer_position = largest_buffer_position
             buffer_length = largest_buffer_length
-
-            log.info(
-                "[+] Found symbolic buffer at position {} of length {}".format(
-                    buffer_position, buffer_length
-                )
-            )
-
+            log.info("[+] Found symbolic buffer at position {} of length {}".format(buffer_position, buffer_length))
             buffer = self.state.memory.load(format_addr + buffer_position, buffer_length)
-
             str_val = b"F"
             buffer_val = str_val * buffer_length
-
             if self.state.solver.satisfiable(extra_constraints=[buffer == buffer_val[:buffer_length]]):
                 log.info("Can constrain it all, let's go!")
                 self.state.add_constraints(buffer == buffer_val[:buffer_length])
@@ -100,7 +82,6 @@ class PrintFormat(angr.procedures.libc.printf.printf):
             self.state.globals["type"] = "fmt"
             self.state.globals["position"] = buffer_position
             self.state.globals["length"] = buffer_length
-
             return True
 
         return False

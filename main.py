@@ -6,31 +6,29 @@
 # Press the green button in the gutter to run the script.
 
 
-from binary.binary import Binary
-from vuln_filter.vuln_filter import PwnMaster
+from pwn_master.binary_analyzer.binary import Binary
+from pwn_master.vuln_filter.vuln_filter import VulnFilter
 import sys
+from pwn import *
+
+context.log_level = 'ERROR'
 
 if __name__ == '__main__':
     option = sys.argv[2]
     binary_path = sys.argv[1]
-
     ip = None
     port = None
-    if option == "LOCAL":
+    if option == "local":
         pass
-    elif option == "REMOTE":
+    elif option == "remote":
         ip = sys.argv[3]
         port = int(sys.argv[4])
 
     binary = Binary(binary_path, ip, port)
 
-    pwn_master = PwnMaster(binary)
+    pwn_master = VulnFilter(binary)
     pwn_master.choose_strategy()
 
-    # fmt_detector = FmtDetector(binary)
-    # details, _ = fmt_detector.detect_format_string()
-    # fmt_exploiter = FmtExploiter(binary, details)
-    # fmt_exploiter.find_pie_offset()
 
 
 
