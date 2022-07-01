@@ -22,12 +22,13 @@ class Binary:
     def create_process(self, type="local"):
         pty = process.PTY
         if type == "local":
-            return self.elf.process(stdin=pty, stdout=pty)
+            # return self.elf.process(stdin=pty, stdout=pty)
+            return self.elf.process()
         elif type == "remote" and self.remote is not None:
             return remote(self.remote[0], self.remote[1])
         elif type == "debug":
             return gdb.debug(self.bin_path, '''break _start''')
-        return self.elf.process(stdin=pty, stdout=pty)
+        return self.elf.process()
 
     def init_libc(self):
         libc = None
@@ -43,7 +44,7 @@ class Binary:
             "canary": self.elf.canary,
             "nx": self.elf.nx,
             "pie": self.elf.pie,
-            "relro": self.elf.relro}
+            "relro": False if self.elf.relro == "Partial" else True}
 
         return protections
 
