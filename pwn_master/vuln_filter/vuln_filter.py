@@ -21,10 +21,10 @@ class VulnFilter:
             if "type" in fmt_vuln:
                 self.vulns["fmt"] = fmt_vuln
 
-            bof_detector = BofDetector(self.binary)
-            bof_vuln, _ = bof_detector.detect_overflow()
-            if "type" in bof_vuln:
-                self.vulns["bof"] = bof_vuln
+            # bof_detector = BofDetector(self.binary)
+            # bof_vuln, _ = bof_detector.detect_overflow()
+            # if "type" in bof_vuln:
+            #     self.vulns["bof"] = bof_vuln
         else:
             fmt_bof_detector = FmtBofDetector(self.binary)
             fmt_bof_vuln = fmt_bof_detector.detect_vuln()

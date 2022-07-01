@@ -1,7 +1,7 @@
 import json
 from pwn import *
 import r2pipe
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, check_output
 from pylibcdb.LibcDB import LibcDB
 
 context.arch = 'amd64'
@@ -20,12 +20,14 @@ class Binary:
         self.remote = None if ip is None or port is None else [ip, port]
 
     def create_process(self, type="local"):
+        pty = process.PTY
         if type == "local":
-            return self.elf.process()
+            return self.elf.process(stdin=pty, stdout=pty)
         elif type == "remote" and self.remote is not None:
             return remote(self.remote[0], self.remote[1])
         elif type == "debug":
             return gdb.debug(self.bin_path, '''break _start''')
+        return self.elf.process(stdin=pty, stdout=pty)
 
     def init_libc(self):
         libc = None
@@ -76,17 +78,17 @@ class Binary:
             self.libc = ELF(libc_path)
         self.libc.address = leak_addr - self.libc.sym[function]
         self.props["adjusted_libc_base"] = True
-        log.success(f'libc base: {hex(self.libc.address)}')
+        log.success(f'Adjusted libc base to: {hex(self.libc.address)}')
 
     def set_libc_base(self, libc_base):
         if self.libc is not None:
             self.libc.address = libc_base
             self.props["adjusted_libc_base"] = True
-            log.success(f'libc base: {hex(self.libc.address)}')
+            log.success(f'Set libc base to: {hex(self.libc.address)}')
 
     def find_function(self, function, search_libc=False):
         elf = self.elf if search_libc is False else self.libc
-        if function in elf.plt:
+        if function in elf.plt and search_libc is False:
             return elf.plt[function]
         if function in elf.symbols:
             return elf.symbols[function]
@@ -114,6 +116,11 @@ class Binary:
             if find_s is not None:
                 return find_s
         return None
+
+    def find_one_gadget(self):
+        one_gadgets = [self.libc.address + int(i) for i in check_output(['one_gadget', '--raw', self.libc.path]).decode().split(' ')]
+        log.info("one_gadgets: {}".format([hex(gadget) for gadget in one_gadgets]))
+        return one_gadgets
 
     def get_rwx_segment(self):
         if len(self.elf.rwx_segments) > 0:

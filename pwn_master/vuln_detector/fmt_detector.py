@@ -30,10 +30,11 @@ class FmtDetector:
         return fmt_input
 
     def get_vuln_details(self, vuln_details, state):
-        vuln_details["type"] = state.globals["type"]
-        vuln_details["position"] = state.globals["position"]
-        vuln_details["length"] = state.globals["length"]
-        vuln_details["output"] = state.posix.dumps(1)
+        if state is not None:
+            vuln_details["type"] = state.globals["type"]
+            vuln_details["position"] = state.globals["position"]
+            vuln_details["length"] = state.globals["length"]
+            vuln_details["output"] = state.posix.dumps(1)
 
     def explore_binary(self, p, state, intermediate=False):
         simgr = p.factory.simgr(state, save_unconstrained=True)
@@ -42,17 +43,18 @@ class FmtDetector:
         # Lame way to do a timeout
         try:
             @timeout_decorator.timeout(120)
-            def explore_binary(simgr: angr.sim_manager):
+            def find_fmt(simgr: angr.sim_manager):
                 simgr.explore(
                     find=lambda s: "type" in s.globals and s.globals["type"] == "fmt",
-                    avoid=lambda s: s.globals["exit"] is True
+                    avoid=lambda s: s.globals["exit"] is True and state.regs.pc.symbolic
                 )
-            explore_binary(simgr)
+            find_fmt(simgr)
             if "found" in simgr.stashes and len(simgr.found):
                 exploit_state: angr.SimState = simgr.found[0]
                 if intermediate is True:
                     self.get_vuln_details(vuln_details, exploit_state)
                     return vuln_details, exploit_state
+
                 simgr = p.factory.simgr(exploit_state, save_unconstrained=True)
                 simgr.run(drop=simgr.stashes["unconstrained"])
                 print(simgr.stashes)
@@ -94,7 +96,7 @@ class FmtDetector:
         state = p.factory.entry_state() if state is None else state
 
         state.libc.buf_symbolic_bytes = 0x100
-        state.libc.max_gets_size = 0x100
+        state.libc.max_gets_size = 200
         # state.globals["input_type"] = input_type
         state.globals["exit"] = False
 

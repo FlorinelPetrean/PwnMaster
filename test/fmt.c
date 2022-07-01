@@ -9,8 +9,10 @@ void vuln() {
     char magic1[10];
     fgets(magic1, 10, stdin);
     if (strncmp(magic1, "magic1", 6) == 0) {
-            fgets(buf, 200, stdin);
-            printf(buf);
+        gets(buf);
+//        fgets(buf, sizeof(buf), stdin);
+//        scanf("%200s", buf);
+        printf(buf);
     }
 
     puts("Hello!");
