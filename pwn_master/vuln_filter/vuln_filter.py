@@ -72,16 +72,19 @@ class VulnFilter:
                 bof_exploiter = RopExploiter(self.binary, self.vulns["bof"])
                 bof_exploiter.ret2libc_exploit()
                 found_exploit = True
+
         elif protection_string == "010":
             if fmt and found_exploit is False:
                 fmt_exploiter = FmtExploiter(self.binary, self.vulns["fmt"])
                 fmt_exploiter.got_overwrite_loop()
                 found_exploit = True
+
         elif protection_string == "011":
             if fmt_and_bof and found_exploit is False:
                 fmt_bof_exploiter = FmtBofExploiter(self.binary, self.vulns["fmt&bof"])
                 fmt_bof_exploiter.two_stage_exploit()
                 found_exploit = True
+
         elif protection_string == "100":
             if fmt_and_bof and found_exploit is False:
                 fmt_bof_exploiter = FmtBofExploiter(self.binary, self.vulns["fmt&bof"])
@@ -91,11 +94,13 @@ class VulnFilter:
                 fmt_fmt_exploiter = FmtFmtExploiter(self.binary, self.vulns["fmt&fmt"])
                 fmt_fmt_exploiter.got_overwrite_attack()
                 found_exploit = True
+
         elif protection_string == "101":
             if fmt_and_bof and found_exploit is False:
                 fmt_bof_exploiter = FmtBofExploiter(self.binary, self.vulns["fmt&bof"])
                 fmt_bof_exploiter.two_stage_exploit()
                 found_exploit = True
+
         elif protection_string == "110":
             if fmt_and_bof and found_exploit is False:
                 fmt_bof_exploiter = FmtBofExploiter(self.binary, self.vulns["fmt&bof"])
@@ -105,15 +110,12 @@ class VulnFilter:
                 fmt_fmt_exploiter = FmtFmtExploiter(self.binary, self.vulns["fmt&fmt"])
                 fmt_fmt_exploiter.got_overwrite_attack()
                 found_exploit = True
+
         elif protection_string == "111":
             if fmt_and_bof and found_exploit is False:
                 fmt_bof_exploiter = FmtBofExploiter(self.binary, self.vulns["fmt&bof"])
                 fmt_bof_exploiter.two_stage_exploit()
                 found_exploit = True
-
-        # if not found_exploit and fmt_and_bof:
-        #     fmt_bof_exploiter = FmtBofExploiter(self.binary, self.vulns["fmt&bof"])
-        #     fmt_bof_exploiter.two_stage_exploit()
 
         if found_exploit is False:
             print("No exploits found!")
