@@ -28,7 +28,11 @@ class Binary:
             return remote(self.remote[0], self.remote[1])
         elif type == "debug":
             return gdb.debug(self.bin_path, '''break _start''')
-        return self.elf.process()
+        else:
+            if remote is None:
+                return self.elf.process()
+            else:
+                return remote(self.remote[0], self.remote[1])
 
     def init_libc(self):
         libc = None
