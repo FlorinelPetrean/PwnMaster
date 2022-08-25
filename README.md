@@ -2,6 +2,7 @@
 
 License project for UTCN
 
+PwnMaster is able to detect Format String and Buffer Overflow vulnerabilities and exploit them automatically. \
 In order to run the application, enter the working directory of PwnMaster, where the main.py file is located. Then, in order to run the program with a local binary, you have to enter the following command:
 
 python3 pwn\_master.py path\_to\_binary\_executable local
